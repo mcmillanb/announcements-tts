@@ -1,0 +1,24 @@
+{
+  "custom_voices": {},
+  "ollama": {
+    "enabled": false,
+    "base_url": "http://host.docker.internal:11434",
+    "model": "llama3.2"
+  },
+  "openwebui": {
+    "enabled": false,
+    "base_url": "http://host.docker.internal:3000",
+    "api_key": ""
+  },
+  "lmstudio": {
+    "enabled": true,
+    "base_url": "http://192.168.122.54:8888/v1",
+    "timeout_seconds": 8.0
+  },
+  "defaults": {
+    "voice_id": "uk-female-1",
+    "output_format": "wav-pcm-16k",
+    "amplitude": 1.0,
+    "speed": 1.0
+  }
+}

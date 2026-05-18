@@ -1,0 +1,23 @@
+services:
+  tts:
+    build: .
+    container_name: british-tts
+    ports:
+      - "8765:8000"
+    user: "${BRITISHTTS_UID:-1000}:${BRITISHTTS_GID:-1000}"
+    environment:
+      LMSTUDIO_BASE_URL: "http://192.168.122.54:8888/v1"
+      BRITISHTTS_CONFIG_DIR: /app/config
+      BRITISHTTS_OUTPUT_DIR: /app/output
+      BRITISHTTS_SAMPLE_DIR: /app/voices/samples
+    volumes:
+      - ./config:/app/config
+      - ./voices/samples:/app/voices/samples
+      - ./output:/app/output
+      - tts_model_cache:/root/.local
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+volumes:
+  tts_model_cache:

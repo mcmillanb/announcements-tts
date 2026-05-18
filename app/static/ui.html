@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>British TTS</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 980px; margin: 2rem auto; padding: 0 1rem; }
+    textarea { width: 100%; min-height: 220px; }
+    label { display: block; margin: .8rem 0 .25rem; font-weight: 650; }
+    select, input, button { font: inherit; padding: .45rem; }
+    .row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: end; }
+    .row > div { flex: 1; min-width: 200px; }
+    #status { padding: .5rem .75rem; border-radius: 6px; background: #eee; display: inline-block; }
+    .error { color: #a00; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>British TTS</h1>
+  <p>Status: <span id="status">checking…</span></p>
+  <label for="text">Text</label>
+  <textarea id="text" maxlength="5000">Hello, this is a British text to speech test.</textarea>
+  <div><span id="count">0</span>/5000 characters</div>
+  <div class="row">
+    <div><label>Voice</label><select id="voice"></select></div>
+    <div><label>Format</label><select id="format"></select></div>
+    <div><label>Amplitude <span id="ampv">1.0</span></label><input id="amp" type="range" min="0.1" max="3" step="0.1" value="1"></div>
+    <div><label>Speed <span id="speedv">1.0</span></label><input id="speed" type="range" min="0.5" max="2" step="0.1" value="1"></div>
+  </div>
+  <p><button id="go">Synthesise</button></p>
+  <audio id="player" controls style="width:100%; display:none"></audio>
+  <p><a id="download" style="display:none">Download</a></p>
+  <h2>Upload voice sample</h2>
+  <input id="sample" type="file" accept=".wav,.mp3,.flac,audio/*" /> <button id="upload">Upload</button>
+  <pre id="error" class="error"></pre>
+<script>
+const formats = ["wav-pcm-16k","wav-pcm-8k","wav-alaw-8k","wav-ulaw-8k","wav-alaw-16k","wav-ulaw-16k","wav-pcm-24k","mp3","flac","ogg"];
+const $ = id => document.getElementById(id);
+function updateCount(){ $('count').textContent = $('text').value.length; }
+$('text').addEventListener('input', updateCount); updateCount();
+$('amp').oninput = () => $('ampv').textContent = $('amp').value;
+$('speed').oninput = () => $('speedv').textContent = $('speed').value;
+formats.forEach(f => $('format').append(new Option(f, f)));
+async function init(){
+  const h = await fetch('/health').then(r=>r.json()); $('status').textContent = h.status + (h.engine.fallback_available ? ' / fallback ready' : '');
+  const v = await fetch('/voices').then(r=>r.json());
+  v.voices.forEach(voice => $('voice').append(new Option(`${voice.label} (${voice.type})`, voice.id)));
+}
+$('go').onclick = async () => {
+  $('error').textContent = ''; $('go').disabled = true;
+  try {
+    const r = await fetch('/synthesise', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({text:$('text').value, voice_id:$('voice').value, output_format:$('format').value, amplitude:+$('amp').value, speed:+$('speed').value})});
+    if(!r.ok) throw new Error(await r.text());
+    const blob = await r.blob(); const url = URL.createObjectURL(blob);
+    $('player').src = url; $('player').style.display = 'block'; $('download').href = url; $('download').download = 'british-tts-output'; $('download').style.display = 'inline';
+  } catch(e) { $('error').textContent = e.message; } finally { $('go').disabled = false; }
+};
+$('upload').onclick = async () => {
+  const f = $('sample').files[0]; if(!f) return;
+  const fd = new FormData(); fd.append('file', f);
+  const r = await fetch('/upload-sample', {method:'POST', body:fd}); $('error').textContent = JSON.stringify(await r.json(), null, 2);
+};
+init().catch(e => $('error').textContent = e.message);
+</script>
+</body>
+</html>
