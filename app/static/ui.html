@@ -9,14 +9,23 @@
     textarea { width: 100%; min-height: 220px; }
     label { display: block; margin: .8rem 0 .25rem; font-weight: 650; }
     select, input, button { font: inherit; padding: .45rem; }
+    header { display: flex; justify-content: space-between; gap: 1rem; align-items: center; }
     .row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: end; }
     .row > div { flex: 1; min-width: 200px; }
     #status { padding: .5rem .75rem; border-radius: 6px; background: #eee; display: inline-block; }
     .error { color: #a00; white-space: pre-wrap; }
+    dialog { border: 1px solid #bbb; border-radius: 8px; max-width: 680px; width: calc(100% - 2rem); }
+    dialog::backdrop { background: rgb(0 0 0 / .25); }
+    .actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1rem; }
+    .inline { display: flex; gap: .5rem; align-items: center; font-weight: 500; }
+    .inline input { width: auto; }
   </style>
 </head>
 <body>
-  <h1>British TTS</h1>
+  <header>
+    <h1>British TTS</h1>
+    <button id="config-open" type="button">Configuration</button>
+  </header>
   <p>Status: <span id="status">checking…</span></p>
   <label for="text">Text</label>
   <textarea id="text" maxlength="5000">Hello, this is a British text to speech test.</textarea>
@@ -33,19 +42,70 @@
   <h2>Upload voice sample</h2>
   <input id="sample" type="file" accept=".wav,.mp3,.flac,audio/*" /> <button id="upload">Upload</button>
   <pre id="error" class="error"></pre>
+
+  <dialog id="config-dialog">
+    <form id="config-form" method="dialog">
+      <h2>Configuration</h2>
+      <label for="provider">TTS provider</label>
+      <select id="provider">
+        <option value="bundled">Bundled model service</option>
+        <option value="external">External OpenAI-compatible service</option>
+      </select>
+      <label class="inline"><input id="bundled-enabled" type="checkbox"> Use bundled service when selected</label>
+      <label for="bundled-url">Bundled service URL</label>
+      <input id="bundled-url" type="url" style="width:100%" placeholder="http://bundled-tts:8001">
+      <label class="inline"><input id="lmstudio-enabled" type="checkbox"> Use LM Studio when external is selected</label>
+      <label for="lmstudio-url">External service URL</label>
+      <input id="lmstudio-url" type="url" style="width:100%" placeholder="http://host.docker.internal:8888/v1">
+      <label for="lmstudio-timeout">External timeout seconds</label>
+      <input id="lmstudio-timeout" type="number" min="1" max="300" step="1">
+      <div class="actions">
+        <button id="config-cancel" type="button">Cancel</button>
+        <button id="config-save" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
 <script>
 const formats = ["wav-pcm-16k","wav-pcm-8k","wav-alaw-8k","wav-ulaw-8k","wav-alaw-16k","wav-ulaw-16k","wav-pcm-24k","mp3","flac","ogg"];
 const $ = id => document.getElementById(id);
+let appConfig = null;
 function updateCount(){ $('count').textContent = $('text').value.length; }
 $('text').addEventListener('input', updateCount); updateCount();
 $('amp').oninput = () => $('ampv').textContent = $('amp').value;
 $('speed').oninput = () => $('speedv').textContent = $('speed').value;
 formats.forEach(f => $('format').append(new Option(f, f)));
 async function init(){
+  appConfig = await fetch('/config').then(r=>r.json());
+  applyConfigForm();
   const h = await fetch('/health').then(r=>r.json()); $('status').textContent = h.status + (h.engine.fallback_available ? ' / fallback ready' : '');
   const v = await fetch('/voices').then(r=>r.json());
   v.voices.forEach(voice => $('voice').append(new Option(`${voice.label} (${voice.type})`, voice.id)));
 }
+function applyConfigForm(){
+  $('provider').value = appConfig.engine?.provider || 'bundled';
+  $('bundled-enabled').checked = appConfig.bundled_tts?.enabled !== false;
+  $('bundled-url').value = appConfig.bundled_tts?.base_url || 'http://bundled-tts:8001';
+  $('lmstudio-enabled').checked = appConfig.lmstudio?.enabled !== false;
+  $('lmstudio-url').value = appConfig.lmstudio?.base_url || '';
+  $('lmstudio-timeout').value = appConfig.lmstudio?.timeout_seconds || 8;
+}
+$('config-open').onclick = () => { applyConfigForm(); $('config-dialog').showModal(); };
+$('config-cancel').onclick = () => $('config-dialog').close();
+$('config-form').onsubmit = async (event) => {
+  event.preventDefault(); $('error').textContent = ''; $('config-save').disabled = true;
+  try {
+    const next = structuredClone(appConfig);
+    next.engine = {...next.engine, provider: $('provider').value};
+    next.bundled_tts = {...next.bundled_tts, enabled: $('bundled-enabled').checked, base_url: $('bundled-url').value.trim(), timeout_seconds: next.bundled_tts?.timeout_seconds || 60};
+    next.lmstudio = {...next.lmstudio, enabled: $('lmstudio-enabled').checked, base_url: $('lmstudio-url').value.trim(), timeout_seconds: +$('lmstudio-timeout').value};
+    const r = await fetch('/config', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(next)});
+    if(!r.ok) throw new Error(await r.text());
+    appConfig = await r.json();
+    $('config-dialog').close();
+    const h = await fetch('/health').then(r=>r.json());
+    $('status').textContent = h.status + ' / ' + h.engine.provider + (h.engine.fallback_available ? ' / fallback ready' : '');
+  } catch(e) { $('error').textContent = e.message; } finally { $('config-save').disabled = false; }
+};
 $('go').onclick = async () => {
   $('error').textContent = ''; $('go').disabled = true;
   try {

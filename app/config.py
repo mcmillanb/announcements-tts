@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Literal
 
 from pydantic import BaseModel, Field
 
@@ -37,6 +37,16 @@ class PiperConfig(BaseModel):
     model_path: str = Field(default_factory=lambda: os.getenv("PIPER_MODEL_PATH", "/app/voices/piper/en_GB-alan-medium.onnx"))
 
 
+class BundledTTSConfig(BaseModel):
+    enabled: bool = True
+    base_url: str = Field(default_factory=lambda: os.getenv("BUNDLED_TTS_BASE_URL", "http://bundled-tts:8001"))
+    timeout_seconds: float = 60.0
+
+
+class EngineConfig(BaseModel):
+    provider: Literal["bundled", "external"] = Field(default_factory=lambda: os.getenv("TTS_PROVIDER", "bundled"))
+
+
 class DefaultsConfig(BaseModel):
     voice_id: str = "uk-female-1"
     output_format: str = "wav-pcm-16k"
@@ -46,6 +56,8 @@ class DefaultsConfig(BaseModel):
 
 class AppConfig(BaseModel):
     custom_voices: Dict[str, VoiceConfig] = Field(default_factory=dict)
+    engine: EngineConfig = Field(default_factory=EngineConfig)
+    bundled_tts: BundledTTSConfig = Field(default_factory=BundledTTSConfig)
     ollama: OllamaConfig = Field(default_factory=OllamaConfig)
     openwebui: OpenWebUIConfig = Field(default_factory=OpenWebUIConfig)
     lmstudio: LMStudioConfig = Field(default_factory=LMStudioConfig)
@@ -78,3 +90,10 @@ def load_config(path: Path | None = None) -> AppConfig:
         return AppConfig()
     raw = json.loads(path.read_text())
     return AppConfig.model_validate(raw)
+
+
+def save_config(config: AppConfig, path: Path | None = None) -> None:
+    if path is None:
+        path = config_dir() / "config.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(config.model_dump(), indent=2) + "\n")

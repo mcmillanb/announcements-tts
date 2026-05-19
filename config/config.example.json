@@ -1,5 +1,13 @@
 {
   "custom_voices": {},
+  "engine": {
+    "provider": "bundled"
+  },
+  "bundled_tts": {
+    "enabled": true,
+    "base_url": "http://bundled-tts:8001",
+    "timeout_seconds": 60.0
+  },
   "ollama": {
     "enabled": false,
     "base_url": "http://host.docker.internal:11434",

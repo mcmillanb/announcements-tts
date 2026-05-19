@@ -59,3 +59,18 @@ def test_config_is_redacted_and_ui_served(tmp_path, monkeypatch):
     ui = client.get("/ui")
     assert ui.status_code == 200
     assert "British TTS" in ui.text
+
+
+def test_config_can_switch_provider_and_persist(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRITISHTTS_CONFIG_DIR", str(tmp_path / "config"))
+    client = TestClient(create_app())
+    config = client.get("/config").json()
+    config["engine"]["provider"] = "external"
+    config["lmstudio"]["base_url"] = "http://host.docker.internal:8888/v1"
+
+    resp = client.post("/config", json=config)
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["engine"]["provider"] == "external"
+    assert client.get("/health").json()["engine"]["provider"] == "external"
+    assert (tmp_path / "config" / "config.json").exists()

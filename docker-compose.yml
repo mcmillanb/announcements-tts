@@ -1,12 +1,15 @@
 services:
   tts:
-    build: .
+    build:
+      context: .
+      target: final
     container_name: british-tts
     ports:
       - "8765:8000"
-    gpus: all
     user: "${BRITISHTTS_UID:-1000}:${BRITISHTTS_GID:-1000}"
     environment:
+      TTS_PROVIDER: "${TTS_PROVIDER:-bundled}"
+      BUNDLED_TTS_BASE_URL: "http://bundled-tts:8001"
       LMSTUDIO_BASE_URL: "http://192.168.122.54:8888/v1"
       BRITISHTTS_CONFIG_DIR: /app/config
       BRITISHTTS_OUTPUT_DIR: /app/output
@@ -15,10 +18,27 @@ services:
       - ./config:/app/config
       - ./voices/samples:/app/voices/samples
       - ./output:/app/output
-      - tts_model_cache:/root/.local
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
+  bundled-tts:
+    profiles: ["bundled"]
+    build:
+      context: .
+      target: bundled-tts
+    container_name: british-tts-models
+    ports:
+      - "8766:8001"
+    environment:
+      BRITISHTTS_CONFIG_DIR: /app/config
+      PIPER_MODEL_PATH: /app/voices/piper/en_GB-alan-medium.onnx
+    volumes:
+      - ./config:/app/config:ro
+      - tts_hf_cache:/root/.cache
+      - tts_model_cache:/root/.local
+    restart: unless-stopped
+
 volumes:
+  tts_hf_cache:
   tts_model_cache:

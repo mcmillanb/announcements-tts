@@ -13,11 +13,10 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
-from app.adapters.kokoro_native import KokoroNativeTTSClient
+from app.adapters.bundled_remote import BundledRemoteTTSClient
 from app.adapters.lmstudio import LMStudioTTSClient
-from app.adapters.piper import PiperTTSClient
 from app.audio import OUTPUT_FORMATS, convert_audio, extension_for, generate_fallback_wav, mime_for
-from app.config import load_config
+from app.config import AppConfig, load_config, save_config
 from app.voices import VoiceRegistry
 
 
@@ -43,8 +42,8 @@ def _safe_base(name: Optional[str]) -> str:
 
 
 def create_app() -> FastAPI:
-    config = load_config()
-    registry = VoiceRegistry(config)
+    config_state = {"config": load_config()}
+    registry_state = {"registry": VoiceRegistry(config_state["config"])}
     output_dir = _dir("BRITISHTTS_OUTPUT_DIR", "output")
     sample_dir = _dir("BRITISHTTS_SAMPLE_DIR", "voices/samples")
     synth_lock = asyncio.Lock()
@@ -53,12 +52,13 @@ def create_app() -> FastAPI:
 
     @app.get("/health")
     async def health():
+        config = config_state["config"]
         return {
             "status": "ok",
             "engine": {
-                "piper_enabled": config.piper.enabled,
-                "piper_model_path": config.piper.model_path,
-                "piper_model_available": Path(config.piper.model_path).exists(),
+                "provider": config.engine.provider,
+                "bundled_tts_enabled": config.bundled_tts.enabled,
+                "bundled_tts_base_url": config.bundled_tts.base_url,
                 "lmstudio_enabled": config.lmstudio.enabled,
                 "lmstudio_base_url": config.lmstudio.base_url,
                 "fallback_available": True,
@@ -68,11 +68,23 @@ def create_app() -> FastAPI:
 
     @app.get("/voices")
     async def voices():
+        registry = registry_state["registry"]
         return {"voices": [v.as_dict() for v in registry.list_voices()]}
 
     @app.get("/config")
     async def get_config():
+        config = config_state["config"]
         return config.redacted()
+
+    @app.post("/config")
+    async def update_config(next_config: AppConfig):
+        current = config_state["config"]
+        if next_config.openwebui.api_key == "***redacted***":
+            next_config.openwebui.api_key = current.openwebui.api_key
+        save_config(next_config)
+        config_state["config"] = next_config
+        registry_state["registry"] = VoiceRegistry(next_config)
+        return next_config.redacted()
 
     @app.get("/ui", response_class=HTMLResponse)
     async def ui():
@@ -92,6 +104,8 @@ def create_app() -> FastAPI:
 
     @app.post("/synthesise")
     async def synthesise(req: SynthesisRequest):
+        config = config_state["config"]
+        registry = registry_state["registry"]
         voice_id = req.voice_id or config.defaults.voice_id
         out_fmt = req.output_format or config.defaults.output_format
         if out_fmt not in OUTPUT_FORMATS:
@@ -110,12 +124,13 @@ def create_app() -> FastAPI:
                 raw = Path(td) / "raw.wav"
                 produced = None
                 speaker = voice.speaker or voice.id
-                kokoro = KokoroNativeTTSClient(enabled=True)
-                produced = kokoro.synthesise_sync(req.text, speaker, raw, speed=req.speed)
-                if produced is None and config.piper.enabled:
-                    piper = PiperTTSClient(config.piper.model_path)
-                    produced = piper.synthesise(req.text, raw, speed=req.speed)
-                if produced is None and config.lmstudio.enabled:
+                if config.engine.provider == "bundled" and config.bundled_tts.enabled:
+                    bundled = BundledRemoteTTSClient(
+                        config.bundled_tts.base_url,
+                        timeout=config.bundled_tts.timeout_seconds,
+                    )
+                    produced = await bundled.synthesise(req.text, speaker, raw, speed=req.speed)
+                if produced is None and config.engine.provider == "external" and config.lmstudio.enabled:
                     lm = LMStudioTTSClient(config.lmstudio.base_url, timeout=config.lmstudio.timeout_seconds)
                     produced = await lm.synthesise(req.text, speaker, raw, speed=req.speed)
                 if produced is None:
