@@ -66,11 +66,11 @@ Required volumes:
 For GPU-accelerated inference on your aibox host with an NVIDIA RTX 3050, use the custom CUDA-composed configuration:
 
 ```bash
-# Move to the aibox host
-ssh guppi@192.168.123.219
+# SSH to the host
+ssh user@server
 
 # Copy project directory if needed (from another machine or existing local clone)
-cd /home/guppi/code/announcements-tts
+cd /home/code/announcements-tts
 
 # Enable GPU support in Docker Compose
 cp docker-compose.yml docker-compose.cuda.yml  # creates docker-compose.cuda.yml with GPU flags
