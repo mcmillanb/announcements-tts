@@ -13,7 +13,9 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
+from app.adapters.kokoro_native import KokoroNativeTTSClient
 from app.adapters.lmstudio import LMStudioTTSClient
+from app.adapters.piper import PiperTTSClient
 from app.audio import OUTPUT_FORMATS, convert_audio, extension_for, generate_fallback_wav, mime_for
 from app.config import load_config
 from app.voices import VoiceRegistry
@@ -54,6 +56,9 @@ def create_app() -> FastAPI:
         return {
             "status": "ok",
             "engine": {
+                "piper_enabled": config.piper.enabled,
+                "piper_model_path": config.piper.model_path,
+                "piper_model_available": Path(config.piper.model_path).exists(),
                 "lmstudio_enabled": config.lmstudio.enabled,
                 "lmstudio_base_url": config.lmstudio.base_url,
                 "fallback_available": True,
@@ -95,16 +100,25 @@ def create_app() -> FastAPI:
         if not voice:
             raise HTTPException(404, f"Unknown voice_id: {voice_id}")
         output_dir.mkdir(parents=True, exist_ok=True)
-        final_path = output_dir / f"{_safe_base(req.filename)}{extension_for(out_fmt)}"
+        # Always write to a unique filename. FileResponse streams after this handler
+        # returns, so concurrent requests using the same requested filename can
+        # otherwise overwrite/truncate the file while it is being sent.
+        final_path = output_dir / f"{_safe_base(req.filename)}_{uuid.uuid4().hex[:8]}{extension_for(out_fmt)}"
 
         async with synth_lock:
             with tempfile.TemporaryDirectory() as td:
                 raw = Path(td) / "raw.wav"
-                lm_done = None
-                if config.lmstudio.enabled:
+                produced = None
+                speaker = voice.speaker or voice.id
+                kokoro = KokoroNativeTTSClient(enabled=True)
+                produced = kokoro.synthesise_sync(req.text, speaker, raw, speed=req.speed)
+                if produced is None and config.piper.enabled:
+                    piper = PiperTTSClient(config.piper.model_path)
+                    produced = piper.synthesise(req.text, raw, speed=req.speed)
+                if produced is None and config.lmstudio.enabled:
                     lm = LMStudioTTSClient(config.lmstudio.base_url, timeout=config.lmstudio.timeout_seconds)
-                    lm_done = await lm.synthesise(req.text, voice.speaker or voice.id, raw, speed=req.speed)
-                if lm_done is None:
+                    produced = await lm.synthesise(req.text, speaker, raw, speed=req.speed)
+                if produced is None:
                     generate_fallback_wav(req.text, raw)
                 convert_audio(raw, final_path, out_fmt, amplitude=req.amplitude)
 

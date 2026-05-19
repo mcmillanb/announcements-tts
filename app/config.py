@@ -32,6 +32,11 @@ class LMStudioConfig(BaseModel):
     timeout_seconds: float = 8.0
 
 
+class PiperConfig(BaseModel):
+    enabled: bool = True
+    model_path: str = Field(default_factory=lambda: os.getenv("PIPER_MODEL_PATH", "/app/voices/piper/en_GB-alan-medium.onnx"))
+
+
 class DefaultsConfig(BaseModel):
     voice_id: str = "uk-female-1"
     output_format: str = "wav-pcm-16k"
@@ -44,6 +49,7 @@ class AppConfig(BaseModel):
     ollama: OllamaConfig = Field(default_factory=OllamaConfig)
     openwebui: OpenWebUIConfig = Field(default_factory=OpenWebUIConfig)
     lmstudio: LMStudioConfig = Field(default_factory=LMStudioConfig)
+    piper: PiperConfig = Field(default_factory=PiperConfig)
     defaults: DefaultsConfig = Field(default_factory=DefaultsConfig)
 
     def redacted(self) -> Dict[str, Any]:

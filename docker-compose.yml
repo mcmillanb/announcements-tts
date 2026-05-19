@@ -4,6 +4,7 @@ services:
     container_name: british-tts
     ports:
       - "8765:8000"
+    gpus: all
     user: "${BRITISHTTS_UID:-1000}:${BRITISHTTS_GID:-1000}"
     environment:
       LMSTUDIO_BASE_URL: "http://192.168.122.54:8888/v1"
