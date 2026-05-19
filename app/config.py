@@ -37,6 +37,13 @@ class PiperConfig(BaseModel):
     model_path: str = Field(default_factory=lambda: os.getenv("PIPER_MODEL_PATH", "/app/voices/piper/en_GB-alan-medium.onnx"))
 
 
+class KokoroVoicesConfig(BaseModel):
+    bm_george: str = Field(default="/app/voices/kokoro/bm_george/model")
+    bm_daniel: str = Field(default="/app/voices/kokoro/bm_daniel/model")
+    bf_emma: str = Field(default="/app/voices/kokoro/bf_emma/model")
+    bf_isabella: str = Field(default="/app/voices/kokoro/bf_isabella/model")
+
+
 class BundledTTSConfig(BaseModel):
     enabled: bool = True
     base_url: str = Field(default_factory=lambda: os.getenv("BUNDLED_TTS_BASE_URL", "http://bundled-tts:8001"))
@@ -62,6 +69,7 @@ class AppConfig(BaseModel):
     openwebui: OpenWebUIConfig = Field(default_factory=OpenWebUIConfig)
     lmstudio: LMStudioConfig = Field(default_factory=LMStudioConfig)
     piper: PiperConfig = Field(default_factory=PiperConfig)
+    kokoro_voices: KokoroVoicesConfig = Field(default_factory=KokoroVoicesConfig)
     defaults: DefaultsConfig = Field(default_factory=DefaultsConfig)
 
     def redacted(self) -> Dict[str, Any]:

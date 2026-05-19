@@ -23,6 +23,16 @@
     "base_url": "http://192.168.122.54:8888/v1",
     "timeout_seconds": 8.0
   },
+  "piper": {
+    "enabled": true,
+    "model_path": "/app/voices/piper/en_GB-alan-medium.onnx"
+  },
+  "kokoro_voices": {
+    "bm_george": "/app/voices/kokoro/bm_george/model",
+    "bm_daniel": "/app/voices/kokoro/bm_daniel/model",
+    "bf_emma": "/app/voices/kokoro/bf_emma/model",
+    "bf_isabella": "/app/voices/kokoro/bf_isabella/model"
+  },
   "defaults": {
     "voice_id": "uk-female-1",
     "output_format": "wav-pcm-16k",
