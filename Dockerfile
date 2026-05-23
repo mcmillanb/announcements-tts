@@ -82,7 +82,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 CMD ["uvicorn", "app.tts_service:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "1"]
 FROM base AS f5-tts-service
 
-COPY requirements-f5tts.txt ./
+COPY requirements-api.txt requirements-f5tts.txt ./
 RUN pip install --no-cache-dir -r requirements-f5tts.txt
 
 COPY app ./app
