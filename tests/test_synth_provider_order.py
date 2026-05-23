@@ -83,7 +83,7 @@ async def test_synthesiser_falls_back_to_lmstudio_when_piper_unavailable(tmp_pat
 
     synth = Synthesiser(AppConfig(), tmp_path)
     out = await synth.synthesise(
-        SynthesiseRequest(text="LM fallback", output_format="wav-pcm-24k", filename="lm"),
+        SynthesiseRequest(text="LM provider", output_format="wav-pcm-24k", filename="lm"),
         BUILTIN_VOICES["uk-female-1"],
     )
 

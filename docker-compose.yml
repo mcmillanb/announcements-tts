@@ -3,17 +3,18 @@ services:
     build:
       context: .
       target: final
-    container_name: british-tts
+    container_name: announcement-tts
     ports:
       - "8765:8000"
-    user: "${BRITISHTTS_UID:-1000}:${BRITISHTTS_GID:-1000}"
+    user: "${ANNOUNCEMENTTTS_UID:-${BRITISHTTS_UID:-1000}}:${ANNOUNCEMENTTTS_GID:-${BRITISHTTS_GID:-1000}}"
     environment:
       TTS_PROVIDER: "${TTS_PROVIDER:-bundled}"
       BUNDLED_TTS_BASE_URL: "http://bundled-tts:8001"
-      LMSTUDIO_BASE_URL: "http://192.168.122.54:8888/v1"
-      BRITISHTTS_CONFIG_DIR: /app/config
-      BRITISHTTS_OUTPUT_DIR: /app/output
-      BRITISHTTS_SAMPLE_DIR: /app/voices/samples
+      LMSTUDIO_BASE_URL: "http://host.docker.internal:1234/v1"
+      ANNOUNCEMENTTTS_DEVICE: "${ANNOUNCEMENTTTS_DEVICE:-${BRITISHTTS_DEVICE:-cpu}}"
+      ANNOUNCEMENTTTS_CONFIG_DIR: /app/config
+      ANNOUNCEMENTTTS_OUTPUT_DIR: /app/output
+      ANNOUNCEMENTTTS_SAMPLE_DIR: /app/voices/samples
     volumes:
       - ./config:/app/config
       - ./voices/samples:/app/voices/samples
@@ -22,21 +23,59 @@ services:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
-  bundled-tts:
-    profiles: ["bundled"]
+  bundled-tts-cpu:
+    profiles: ["cpu"]
     build:
       context: .
       target: bundled-tts
-    container_name: british-tts-models
+    container_name: announcement-tts-models-cpu
     ports:
       - "8766:8001"
     environment:
-      BRITISHTTS_CONFIG_DIR: /app/config
+      ANNOUNCEMENTTTS_CONFIG_DIR: /app/config
+      ANNOUNCEMENTTTS_DEVICE: "${ANNOUNCEMENTTTS_DEVICE:-${BRITISHTTS_DEVICE:-cpu}}"
+      CUDA_VISIBLE_DEVICES: "${CUDA_VISIBLE_DEVICES:-}"
       PIPER_MODEL_PATH: /app/voices/piper/en_GB-alan-medium.onnx
     volumes:
       - ./config:/app/config:ro
       - tts_hf_cache:/root/.cache
       - tts_model_cache:/root/.local
+    networks:
+      default:
+        aliases:
+          - bundled-tts
+    restart: unless-stopped
+
+  bundled-tts-gpu:
+    profiles: ["gpu"]
+    build:
+      context: .
+      target: bundled-tts
+    container_name: announcement-tts-models-gpu
+    ports:
+      - "8766:8001"
+    environment:
+      ANNOUNCEMENTTTS_CONFIG_DIR: /app/config
+      ANNOUNCEMENTTTS_DEVICE: "${ANNOUNCEMENTTTS_DEVICE:-${BRITISHTTS_DEVICE:-gpu}}"
+      CUDA_VISIBLE_DEVICES: "${CUDA_VISIBLE_DEVICES:-0}"
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      PIPER_MODEL_PATH: /app/voices/piper/en_GB-alan-medium.onnx
+    volumes:
+      - ./config:/app/config:ro
+      - tts_hf_cache:/root/.cache
+      - tts_model_cache:/root/.local
+    networks:
+      default:
+        aliases:
+          - bundled-tts
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     restart: unless-stopped
 
 volumes:

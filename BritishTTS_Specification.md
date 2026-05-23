@@ -235,12 +235,17 @@ ffmpeg -i input.wav -ar 16000 -ac 1 -c:a pcm_mulaw output_16k_ulaw.wav
 | Key | Type | Purpose |
 |---|---|---|
 | `custom_voices.*` | object | Map of `voice_id → {label, sample_file, language}` |
+| `engine.provider` | string | `bundled` or `external` synthesis provider |
+| `engine.external_provider` | string | External API selection: `lmstudio`, `openai`, `ollama`, `openwebui`, or `custom` |
 | `ollama.enabled` | bool | Enable/disable Ollama pre-processing globally (default `false`) |
 | `ollama.base_url` | string | Ollama base URL, e.g. `http://host.docker.internal:11434` |
 | `ollama.model` | string | Model for text normalisation, e.g. `llama3.2`, `mistral` |
 | `openwebui.enabled` | bool | Use Open WebUI API instead of Ollama directly |
 | `openwebui.base_url` | string | Open WebUI endpoint |
 | `openwebui.api_key` | string | Open WebUI API key if auth is enabled |
+| `lmstudio.base_url` | string | LM Studio OpenAI-compatible endpoint, default `http://host.docker.internal:1234/v1` |
+| `openai.base_url` | string | OpenAI API endpoint, default `https://api.openai.com/v1` |
+| `openai.api_key` | string | OpenAI API key |
 | `defaults.voice_id` | string | Default voice for web UI and omitted requests |
 | `defaults.output_format` | string | Default output format (recommended: `wav-alaw-8k` for telephony) |
 | `defaults.amplitude` | float | Default amplitude multiplier (`1.0`) |
@@ -257,15 +262,35 @@ ffmpeg -i input.wav -ar 16000 -ac 1 -c:a pcm_mulaw output_16k_ulaw.wav
       "language": "en"
     }
   },
+  "engine": {
+    "provider": "bundled",
+    "external_provider": "lmstudio"
+  },
   "ollama": {
     "enabled": false,
     "base_url": "http://host.docker.internal:11434",
-    "model": "llama3.2"
+    "model": "llama3.2",
+    "timeout_seconds": 8.0
   },
   "openwebui": {
     "enabled": false,
     "base_url": "http://host.docker.internal:3000",
-    "api_key": ""
+    "api_key": "",
+    "model": "tts-1",
+    "timeout_seconds": 8.0
+  },
+  "lmstudio": {
+    "enabled": true,
+    "base_url": "http://host.docker.internal:1234/v1",
+    "model": "",
+    "timeout_seconds": 8.0
+  },
+  "openai": {
+    "enabled": false,
+    "base_url": "https://api.openai.com/v1",
+    "api_key": "",
+    "model": "tts-1",
+    "timeout_seconds": 30.0
   },
   "defaults": {
     "voice_id": "uk-female-1",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import wave
 from pathlib import Path
 from typing import Optional
@@ -23,6 +24,9 @@ class KokoroNativeTTSClient:
     def _load_pipeline(self, lang_code: str):
         if lang_code in self._pipelines:
             return self._pipelines[lang_code]
+        device = os.getenv("ANNOUNCEMENTTTS_DEVICE", os.getenv("BRITISHTTS_DEVICE", "auto")).strip().lower()
+        if device == "cpu":
+            os.environ["CUDA_VISIBLE_DEVICES"] = ""
         try:
             from kokoro import KPipeline  # type: ignore
         except Exception as exc:  # pragma: no cover - exact import failure varies by platform

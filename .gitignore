@@ -7,6 +7,17 @@ voices/samples/*
 !voices/samples/.gitkeep
 output/*
 !output/.gitkeep
+vendor/model-assets/*
+!vendor/model-assets/.gitkeep
+!vendor/model-assets/piper/
+vendor/model-assets/piper/*
+!vendor/model-assets/piper/.gitkeep
+!vendor/model-assets/spacy/
+vendor/model-assets/spacy/*
+!vendor/model-assets/spacy/.gitkeep
+!vendor/model-assets/huggingface/
+vendor/model-assets/huggingface/*
+!vendor/model-assets/huggingface/.gitkeep
 *.wav
 *.mp3
 *.flac

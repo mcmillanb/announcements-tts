@@ -5,7 +5,9 @@ from pathlib import Path
 from app.adapters.kokoro_native import KokoroNativeTTSClient
 from app.adapters.lmstudio import LMStudioTTSClient
 from app.adapters.piper import PiperTTSClient
-from app.audio import OUTPUT_FORMATS, convert_audio, generate_fallback_wav
+from fastapi import HTTPException
+
+from app.audio import OUTPUT_FORMATS, convert_audio
 from app.config import AppConfig
 from app.schemas import SynthesiseRequest
 from app.voices import Voice
@@ -16,10 +18,16 @@ class Synthesiser:
         self.config = config
         self.output_dir = output_dir
         self.lock = asyncio.Lock()
-        self.adapter = LMStudioTTSClient(config.lmstudio.base_url, config.lmstudio.timeout_seconds)
+        external = config.external_tts_settings()
+        self.adapter = LMStudioTTSClient(
+            external["base_url"],
+            external["timeout_seconds"],
+            api_key=external["api_key"],
+            model=external["model"],
+        )
         self.kokoro = KokoroNativeTTSClient(enabled=True)
         self.piper = PiperTTSClient(config.piper.model_path)
-        self.last_engine = "fallback"
+        self.last_engine = "none"
 
     async def synthesise(self, request: SynthesiseRequest, voice: Voice) -> Path:
         async with self.lock:
@@ -42,13 +50,14 @@ class Synthesiser:
                 produced = self.piper.synthesise(request.text, tmp, request.speed)
                 if produced is not None:
                     self.last_engine = "piper"
-            if produced is None and self.config.lmstudio.enabled:
+            external = self.config.external_tts_settings()
+            if produced is None and external["enabled"]:
                 produced = await self.adapter.synthesise(request.text, speaker, tmp, request.speed)
                 if produced is not None:
-                    self.last_engine = "lmstudio"
+                    self.last_engine = external["provider"]
             if produced is None:
-                self.last_engine = "deterministic-fallback"
-                generate_fallback_wav(request.text, tmp)
+                self.last_engine = "none"
+                raise HTTPException(503, "TTS provider did not produce audio")
 
             convert_audio(tmp, final, request.output_format, amplitude=request.amplitude)
             try:

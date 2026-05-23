@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import tempfile
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from starlette.background import BackgroundTask
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from app.adapters.kokoro_native import KokoroNativeTTSClient
 from app.adapters.piper import PiperTTSClient
-from app.audio import generate_fallback_wav
 from app.config import load_config
 
 
@@ -27,18 +27,18 @@ def create_app() -> FastAPI:
     kokoro = KokoroNativeTTSClient(enabled=True)
     piper = PiperTTSClient(config.piper.model_path)
 
-    app = FastAPI(title="British TTS Bundled Models", version="0.1.0")
+    app = FastAPI(title="Announcement TTS Bundled Models", version="0.1.0")
 
     @app.get("/health")
     async def health():
         return {
             "status": "ok",
             "engine": {
+                "device": os.getenv("ANNOUNCEMENTTTS_DEVICE", os.getenv("BRITISHTTS_DEVICE", "auto")),
                 "kokoro_enabled": True,
                 "piper_enabled": config.piper.enabled,
                 "piper_model_path": config.piper.model_path,
                 "piper_model_available": Path(config.piper.model_path).exists(),
-                "fallback_available": True,
             },
         }
 
@@ -51,7 +51,8 @@ def create_app() -> FastAPI:
             if produced is None and config.piper.enabled:
                 produced = piper.synthesise(req.text, raw, speed=req.speed)
             if produced is None:
-                generate_fallback_wav(req.text, raw)
+                td.cleanup()
+                raise HTTPException(503, "Bundled TTS service did not produce audio")
             return FileResponse(raw, media_type="audio/wav", background=BackgroundTask(td.cleanup))
 
     return app

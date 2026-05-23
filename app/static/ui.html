@@ -3,64 +3,246 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>British TTS</title>
+  <title>Announcement TTS</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 980px; margin: 2rem auto; padding: 0 1rem; }
-    textarea { width: 100%; min-height: 220px; }
-    label { display: block; margin: .8rem 0 .25rem; font-weight: 650; }
-    select, input, button { font: inherit; padding: .45rem; }
-    header { display: flex; justify-content: space-between; gap: 1rem; align-items: center; }
-    .row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: end; }
-    .row > div { flex: 1; min-width: 200px; }
-    #status { padding: .5rem .75rem; border-radius: 6px; background: #eee; display: inline-block; }
-    .error { color: #a00; white-space: pre-wrap; }
-    dialog { border: 1px solid #bbb; border-radius: 8px; max-width: 680px; width: calc(100% - 2rem); }
-    dialog::backdrop { background: rgb(0 0 0 / .25); }
-    .actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1rem; }
-    .inline { display: flex; gap: .5rem; align-items: center; font-weight: 500; }
+    :root {
+      color-scheme: light;
+      --bg: #f3f7f4;
+      --panel: #ffffff;
+      --panel-soft: #e9f0ec;
+      --ink: #18221f;
+      --muted: #5b6b65;
+      --line: #cbd8d1;
+      --accent: #0f766e;
+      --accent-dark: #0b5f59;
+      --accent-soft: #d7f1ec;
+      --danger: #a43b35;
+      --shadow: 0 18px 50px rgb(21 58 50 / .14);
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        linear-gradient(135deg, rgb(15 118 110 / .16), transparent 34rem),
+        linear-gradient(315deg, rgb(199 125 57 / .13), transparent 32rem),
+        var(--bg);
+    }
+    main { width: min(1180px, calc(100% - 2rem)); margin: 0 auto; padding: 2rem 0 3rem; }
+    header { display: flex; justify-content: space-between; gap: 1rem; align-items: center; margin-bottom: 1.25rem; }
+    h1 { margin: 0; font-size: clamp(2rem, 4vw, 3.5rem); line-height: 1; letter-spacing: 0; }
+    h2 { margin: 0 0 1rem; font-size: 1.1rem; }
+    h3 { margin: 0 0 .75rem; font-size: .98rem; }
+    label { display: block; margin: .8rem 0 .3rem; color: var(--ink); font-weight: 700; font-size: .9rem; }
+    textarea, select, input, button {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font: inherit;
+    }
+    textarea, select, input {
+      background: #fbfdfc;
+      color: var(--ink);
+      padding: .65rem .75rem;
+    }
+    textarea { min-height: 235px; resize: vertical; line-height: 1.45; }
+    input[type="range"] { padding: 0; accent-color: var(--accent); }
+    input[type="file"] { background: var(--panel); }
+    button {
+      width: auto;
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+      padding: .68rem .95rem;
+      font-weight: 750;
+      cursor: pointer;
+    }
+    button:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+    button:disabled { cursor: wait; opacity: .65; }
+    .ghost { background: #fff; color: var(--accent); }
+    .ghost:hover { color: #fff; }
+    .app-shell { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(310px, .9fr); gap: 1rem; align-items: start; }
+    .panel {
+      background: rgb(255 255 255 / .88);
+      border: 1px solid rgb(203 216 209 / .9);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 1rem;
+      backdrop-filter: blur(10px);
+    }
+    .panel.soft { background: rgb(233 240 236 / .86); box-shadow: none; }
+    .row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .85rem; }
+    .controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .85rem; }
+    .status-line { display: flex; align-items: center; gap: .65rem; margin: 0 0 1rem; color: var(--muted); }
+    #status { padding: .38rem .65rem; border-radius: 999px; background: var(--accent-soft); color: var(--accent-dark); font-weight: 750; }
+    .meta { color: var(--muted); font-size: .88rem; }
+    .actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1rem; flex-wrap: wrap; }
+    .inline { display: flex; gap: .5rem; align-items: center; font-weight: 600; }
     .inline input { width: auto; }
+    .download-row { display: flex; gap: .65rem; align-items: center; flex-wrap: wrap; margin-top: .85rem; }
+    .download-row a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 2.45rem;
+      border-radius: 8px;
+      background: var(--accent-soft);
+      color: var(--accent-dark);
+      padding: .55rem .75rem;
+      font-weight: 750;
+      text-decoration: none;
+    }
+    audio { width: 100%; margin-top: .85rem; }
+    progress { width: 100%; height: .9rem; accent-color: var(--accent); }
+    .bulk-status { min-height: 1.4rem; margin: .6rem 0 0; color: var(--muted); font-weight: 650; }
+    .panel-status { min-height: 1.4rem; margin-top: .75rem; color: var(--muted); font-weight: 650; }
+    .panel-status.error { color: var(--danger); }
+    .error { color: var(--danger); white-space: pre-wrap; margin-top: 1rem; }
+    dialog {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      max-width: 720px;
+      width: calc(100% - 2rem);
+      color: var(--ink);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+    dialog::backdrop { background: rgb(17 24 39 / .35); }
+    @media (max-width: 860px) {
+      main { width: min(100% - 1rem, 680px); padding-top: 1rem; }
+      header, .app-shell { display: block; }
+      header button { margin-top: 1rem; }
+      .panel { margin-bottom: 1rem; }
+      .row, .controls { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
-  <header>
-    <h1>British TTS</h1>
-    <button id="config-open" type="button">Configuration</button>
-  </header>
-  <p>Status: <span id="status">checking…</span></p>
-  <label for="text">Text</label>
-  <textarea id="text" maxlength="5000">Hello, this is a British text to speech test.</textarea>
-  <div><span id="count">0</span>/5000 characters</div>
-  <div class="row">
-    <div><label>Voice</label><select id="voice"></select></div>
-    <div><label>Format</label><select id="format"></select></div>
-    <div><label>Amplitude <span id="ampv">1.0</span></label><input id="amp" type="range" min="0.1" max="3" step="0.1" value="1"></div>
-    <div><label>Speed <span id="speedv">1.0</span></label><input id="speed" type="range" min="0.5" max="2" step="0.1" value="1"></div>
-  </div>
-  <p><button id="go">Synthesise</button></p>
-  <audio id="player" controls style="width:100%; display:none"></audio>
-  <p><a id="download" style="display:none">Download</a></p>
-  <h2>Upload voice sample</h2>
-  <input id="sample" type="file" accept=".wav,.mp3,.flac,audio/*" /> <button id="upload">Upload</button>
-  <pre id="error" class="error"></pre>
+  <main>
+    <header>
+      <div>
+        <h1>Announcement TTS</h1>
+        <p class="status-line">Status: <span id="status">checking...</span></p>
+      </div>
+      <button id="config-open" class="ghost" type="button">Configuration</button>
+    </header>
+
+    <div class="app-shell">
+      <section class="panel">
+        <h2>Single Announcement</h2>
+        <label for="text">Text</label>
+        <textarea id="text" maxlength="5000">Hello, this is an announcement text to speech test.[pause:1.0]Thank you.</textarea>
+        <div class="meta"><span id="count">0</span>/5000 characters</div>
+        <div class="meta">Use [pause:1.5] for a timed pause in seconds.</div>
+        <div class="row">
+          <div><label for="voice">Voice</label><select id="voice"></select></div>
+          <div><label for="format">Format</label><select id="format"></select></div>
+        </div>
+        <div class="controls">
+          <div><label for="amp">Volume <span id="ampv">1.0</span></label><input id="amp" type="range" min="0.1" max="3" step="0.1" value="1"></div>
+          <div><label for="speed">Speed <span id="speedv">1.0</span></label><input id="speed" type="range" min="0.5" max="2" step="0.1" value="1"></div>
+          <div><label for="pitch">Pitch <span id="pitchv">0</span></label><input id="pitch" type="range" min="-12" max="12" step="1" value="0"></div>
+        </div>
+        <div class="actions">
+          <button id="go" type="button">Create Announcement</button>
+        </div>
+        <div id="single-status" class="panel-status"></div>
+        <audio id="player" controls style="display:none"></audio>
+        <div class="download-row"><a id="download" style="display:none">Download announcement</a></div>
+      </section>
+
+      <aside>
+        <section class="panel soft">
+          <h2>Bulk Announcements</h2>
+          <label for="bulk-file">CSV file</label>
+          <input id="bulk-file" type="file" accept=".csv,text/csv" />
+          <div class="meta">Format: "Text","Filename". Use [pause:1.5] for timed pauses; missing extensions are added from the selected output format.</div>
+          <div class="actions">
+            <button id="bulk-go" type="button">Create Zip</button>
+          </div>
+          <progress id="bulk-progress" value="0" max="1"></progress>
+          <div id="bulk-status" class="bulk-status">No bulk job running</div>
+          <div class="download-row"><a id="bulk-download" style="display:none">Download zip</a></div>
+        </section>
+
+        <section class="panel soft">
+          <h2>Tone Generator</h2>
+          <div class="row">
+            <div><label for="tone-frequency">Frequency Hz</label><input id="tone-frequency" type="number" min="20" max="20000" step="1" value="440"></div>
+            <div><label for="tone-format">Format</label><select id="tone-format"></select></div>
+          </div>
+          <div class="row">
+            <div><label for="tone-beep">Beep length seconds</label><input id="tone-beep" type="number" min="0.01" max="60" step="0.01" value="0.25"></div>
+            <div><label for="tone-total">Total length seconds</label><input id="tone-total" type="number" min="0.01" max="300" step="0.01" value="1"></div>
+          </div>
+          <div class="row">
+            <div><label for="tone-before">Silence before seconds</label><input id="tone-before" type="number" min="0" max="300" step="0.01" value="0.2"></div>
+            <div><label for="tone-after">Silence after seconds</label><input id="tone-after" type="number" min="0" max="300" step="0.01" value="0.55"></div>
+          </div>
+          <label for="tone-amplitude">Amplitude <span id="tone-ampv">0.8</span></label>
+          <input id="tone-amplitude" type="range" min="0" max="1" step="0.05" value="0.8">
+          <div class="actions">
+            <button id="tone-go" type="button">Create Tone</button>
+          </div>
+          <audio id="tone-player" controls style="display:none"></audio>
+          <div class="download-row"><a id="tone-download" style="display:none">Download tone</a></div>
+        </section>
+
+        <section class="panel soft">
+          <h2>Voice Samples</h2>
+          <label for="sample">Upload sample</label>
+          <input id="sample" type="file" accept=".wav,.mp3,.flac,audio/*" />
+          <div class="actions">
+            <button id="upload" class="ghost" type="button">Upload</button>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <pre id="error" class="error"></pre>
+  </main>
 
   <dialog id="config-dialog">
     <form id="config-form" method="dialog">
       <h2>Configuration</h2>
-      <label for="provider">TTS provider</label>
-      <select id="provider">
-        <option value="bundled">Bundled model service</option>
-        <option value="external">External OpenAI-compatible service</option>
-      </select>
+      <div class="row">
+        <div><label for="default-voice">Default voice</label><select id="default-voice"></select></div>
+        <div><label for="default-format">Default output format</label><select id="default-format"></select></div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="provider">TTS provider</label>
+          <select id="provider">
+            <option value="bundled">Bundled model service</option>
+            <option value="external">External OpenAI-compatible service</option>
+          </select>
+        </div>
+        <div>
+          <label for="external-provider">External provider</label>
+          <select id="external-provider">
+            <option value="lmstudio">LM Studio</option>
+            <option value="openai">OpenAI</option>
+            <option value="ollama">Ollama-compatible endpoint</option>
+            <option value="openwebui">Open WebUI</option>
+            <option value="custom">Custom OpenAI-compatible endpoint</option>
+          </select>
+        </div>
+      </div>
       <label class="inline"><input id="bundled-enabled" type="checkbox"> Use bundled service when selected</label>
       <label for="bundled-url">Bundled service URL</label>
-      <input id="bundled-url" type="url" style="width:100%" placeholder="http://bundled-tts:8001">
-      <label class="inline"><input id="lmstudio-enabled" type="checkbox"> Use LM Studio when external is selected</label>
-      <label for="lmstudio-url">External service URL</label>
-      <input id="lmstudio-url" type="url" style="width:100%" placeholder="http://host.docker.internal:8888/v1">
-      <label for="lmstudio-timeout">External timeout seconds</label>
-      <input id="lmstudio-timeout" type="number" min="1" max="300" step="1">
+      <input id="bundled-url" type="url" placeholder="http://bundled-tts:8001">
+      <label class="inline"><input id="external-enabled" type="checkbox"> Use selected external provider</label>
+      <label for="external-url">External service URL</label>
+      <input id="external-url" type="url" placeholder="http://host.docker.internal:1234/v1">
+      <label for="external-model">External model</label>
+      <input id="external-model" type="text" placeholder="tts-1">
+      <label for="external-api-key">External API key</label>
+      <input id="external-api-key" type="password" autocomplete="off" placeholder="Optional">
+      <label for="external-timeout">External timeout seconds</label>
+      <input id="external-timeout" type="number" min="1" max="300" step="1">
       <div class="actions">
-        <button id="config-cancel" type="button">Cancel</button>
+        <button id="config-cancel" class="ghost" type="button">Cancel</button>
         <button id="config-save" type="submit">Save</button>
       </div>
     </form>
@@ -69,52 +251,226 @@
 const formats = ["wav-pcm-16k","wav-pcm-8k","wav-alaw-8k","wav-ulaw-8k","wav-alaw-16k","wav-ulaw-16k","wav-pcm-24k","mp3","flac","ogg"];
 const $ = id => document.getElementById(id);
 let appConfig = null;
+let voices = [];
+let bulkPoll = null;
+const providerDefaults = {
+  lmstudio: {base_url: 'http://host.docker.internal:1234/v1', model: '', timeout_seconds: 8, api_key: ''},
+  openai: {base_url: 'https://api.openai.com/v1', model: 'tts-1', timeout_seconds: 30, api_key: ''},
+  ollama: {base_url: 'http://host.docker.internal:11434', model: 'llama3.2', timeout_seconds: 8, api_key: ''},
+  openwebui: {base_url: 'http://host.docker.internal:3000', model: 'tts-1', timeout_seconds: 8, api_key: ''},
+  custom: {base_url: 'http://host.docker.internal:1234/v1', model: 'tts-1', timeout_seconds: 8, api_key: ''}
+};
+const providerConfigKey = provider => provider === 'custom' ? 'custom_external' : provider;
 function updateCount(){ $('count').textContent = $('text').value.length; }
+function updatePitchLabel(){ $('pitchv').textContent = Number($('pitch').value) > 0 ? `+${$('pitch').value}` : $('pitch').value; }
+async function errorMessage(response){
+  const text = await response.text();
+  try {
+    const data = JSON.parse(text);
+    return data.detail || text;
+  } catch {
+    return text || `${response.status} ${response.statusText}`;
+  }
+}
+function setPanelStatus(id, message, isError=false){
+  const el = $(id);
+  el.textContent = message;
+  el.classList.toggle('error', isError);
+}
+function currentSettings(){
+  return {
+    voice_id: $('voice').value,
+    output_format: $('format').value,
+    amplitude: +$('amp').value,
+    speed: +$('speed').value,
+    pitch: +$('pitch').value
+  };
+}
 $('text').addEventListener('input', updateCount); updateCount();
 $('amp').oninput = () => $('ampv').textContent = $('amp').value;
 $('speed').oninput = () => $('speedv').textContent = $('speed').value;
+$('pitch').oninput = updatePitchLabel;
 formats.forEach(f => $('format').append(new Option(f, f)));
+formats.forEach(f => $('default-format').append(new Option(f, f)));
+formats.forEach(f => $('tone-format').append(new Option(f, f)));
+$('tone-amplitude').oninput = () => $('tone-ampv').textContent = $('tone-amplitude').value;
 async function init(){
   appConfig = await fetch('/config').then(r=>r.json());
-  applyConfigForm();
-  const h = await fetch('/health').then(r=>r.json()); $('status').textContent = h.status + (h.engine.fallback_available ? ' / fallback ready' : '');
+  applyMainDefaults();
+  const h = await fetch('/health').then(r=>r.json());
+  $('status').textContent = h.status + (h.engine.tts_status ? ` / ${h.engine.tts_status}` : '');
+  if(h.engine.tts_status === 'unavailable' || h.engine.tts_status === 'disabled') {
+    setPanelStatus('single-status', h.engine.tts_status_message || 'TTS provider is not ready', true);
+  }
   const v = await fetch('/voices').then(r=>r.json());
-  v.voices.forEach(voice => $('voice').append(new Option(`${voice.label} (${voice.type})`, voice.id)));
+  voices = v.voices;
+  populateVoiceSelects();
+  applyMainDefaults();
+  applyConfigForm();
+}
+function populateVoiceSelects(){
+  $('voice').replaceChildren();
+  $('default-voice').replaceChildren();
+  voices.forEach(voice => {
+    const label = `${voice.label} (${voice.type})`;
+    $('voice').append(new Option(label, voice.id));
+    $('default-voice').append(new Option(label, voice.id));
+  });
+}
+function applyMainDefaults(){
+  const defaults = appConfig?.defaults || {};
+  if(defaults.voice_id && [...$('voice').options].some(option => option.value === defaults.voice_id)) $('voice').value = defaults.voice_id;
+  if(defaults.output_format && formats.includes(defaults.output_format)) $('format').value = defaults.output_format;
+  if(defaults.output_format && formats.includes(defaults.output_format)) $('tone-format').value = defaults.output_format;
+  $('amp').value = defaults.amplitude ?? 1;
+  $('speed').value = defaults.speed ?? 1;
+  $('pitch').value = defaults.pitch ?? 0;
+  $('ampv').textContent = $('amp').value;
+  $('speedv').textContent = $('speed').value;
+  updatePitchLabel();
 }
 function applyConfigForm(){
+  const defaults = appConfig.defaults || {};
+  if(defaults.voice_id && [...$('default-voice').options].some(option => option.value === defaults.voice_id)) $('default-voice').value = defaults.voice_id;
+  $('default-format').value = formats.includes(defaults.output_format) ? defaults.output_format : 'wav-pcm-16k';
   $('provider').value = appConfig.engine?.provider || 'bundled';
+  $('external-provider').value = appConfig.engine?.external_provider || 'lmstudio';
   $('bundled-enabled').checked = appConfig.bundled_tts?.enabled !== false;
   $('bundled-url').value = appConfig.bundled_tts?.base_url || 'http://bundled-tts:8001';
-  $('lmstudio-enabled').checked = appConfig.lmstudio?.enabled !== false;
-  $('lmstudio-url').value = appConfig.lmstudio?.base_url || '';
-  $('lmstudio-timeout').value = appConfig.lmstudio?.timeout_seconds || 8;
+  applyExternalProviderForm();
+}
+function applyExternalProviderForm(){
+  const provider = $('external-provider').value;
+  const key = providerConfigKey(provider);
+  const defaults = providerDefaults[provider];
+  const cfg = appConfig[key] || {};
+  $('external-enabled').checked = cfg.enabled === true || (provider === 'lmstudio' && cfg.enabled !== false);
+  $('external-url').value = cfg.base_url || defaults.base_url;
+  $('external-model').value = cfg.model || defaults.model;
+  $('external-api-key').value = cfg.api_key || '';
+  $('external-timeout').value = cfg.timeout_seconds || defaults.timeout_seconds;
+  $('external-api-key').disabled = provider === 'lmstudio' || provider === 'ollama';
 }
 $('config-open').onclick = () => { applyConfigForm(); $('config-dialog').showModal(); };
 $('config-cancel').onclick = () => $('config-dialog').close();
+$('external-provider').onchange = applyExternalProviderForm;
 $('config-form').onsubmit = async (event) => {
   event.preventDefault(); $('error').textContent = ''; $('config-save').disabled = true;
   try {
     const next = structuredClone(appConfig);
-    next.engine = {...next.engine, provider: $('provider').value};
+    const externalProvider = $('external-provider').value;
+    const externalKey = providerConfigKey(externalProvider);
+    next.defaults = {
+      ...next.defaults,
+      voice_id: $('default-voice').value || next.defaults?.voice_id || 'uk-female-1',
+      output_format: $('default-format').value || next.defaults?.output_format || 'wav-pcm-16k'
+    };
+    next.engine = {...next.engine, provider: $('provider').value, external_provider: externalProvider};
     next.bundled_tts = {...next.bundled_tts, enabled: $('bundled-enabled').checked, base_url: $('bundled-url').value.trim(), timeout_seconds: next.bundled_tts?.timeout_seconds || 60};
-    next.lmstudio = {...next.lmstudio, enabled: $('lmstudio-enabled').checked, base_url: $('lmstudio-url').value.trim(), timeout_seconds: +$('lmstudio-timeout').value};
+    next[externalKey] = {
+      ...next[externalKey],
+      enabled: $('external-enabled').checked,
+      base_url: $('external-url').value.trim(),
+      model: $('external-model').value.trim(),
+      timeout_seconds: +$('external-timeout').value
+    };
+    if(!$('external-api-key').disabled) next[externalKey].api_key = $('external-api-key').value;
     const r = await fetch('/config', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(next)});
     if(!r.ok) throw new Error(await r.text());
     appConfig = await r.json();
+    applyMainDefaults();
     $('config-dialog').close();
     const h = await fetch('/health').then(r=>r.json());
-    $('status').textContent = h.status + ' / ' + h.engine.provider + (h.engine.fallback_available ? ' / fallback ready' : '');
+    $('status').textContent = h.status + ' / ' + h.engine.provider + (h.engine.tts_status ? ` / ${h.engine.tts_status}` : '');
   } catch(e) { $('error').textContent = e.message; } finally { $('config-save').disabled = false; }
 };
 $('go').onclick = async () => {
-  $('error').textContent = ''; $('go').disabled = true;
+  $('error').textContent = ''; setPanelStatus('single-status', 'Creating announcement...'); $('go').disabled = true;
   try {
-    const r = await fetch('/synthesise', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({text:$('text').value, voice_id:$('voice').value, output_format:$('format').value, amplitude:+$('amp').value, speed:+$('speed').value})});
-    if(!r.ok) throw new Error(await r.text());
+    const settings = currentSettings();
+    const r = await fetch('/synthesise', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({...settings, text:$('text').value})});
+    if(!r.ok) throw new Error(await errorMessage(r));
     const blob = await r.blob(); const url = URL.createObjectURL(blob);
-    $('player').src = url; $('player').style.display = 'block'; $('download').href = url; $('download').download = 'british-tts-output'; $('download').style.display = 'inline';
-  } catch(e) { $('error').textContent = e.message; } finally { $('go').disabled = false; }
+    $('player').src = url; $('player').style.display = 'block';
+    $('download').href = url; $('download').download = 'announcement-tts-output'; $('download').style.display = 'inline-flex';
+    setPanelStatus('single-status', 'Announcement created');
+  } catch(e) { setPanelStatus('single-status', e.message, true); } finally { $('go').disabled = false; }
 };
+$('tone-go').onclick = async () => {
+  $('error').textContent = ''; $('tone-go').disabled = true;
+  try {
+    const r = await fetch('/tone', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({
+      frequency_hz: +$('tone-frequency').value,
+      beep_seconds: +$('tone-beep').value,
+      total_seconds: +$('tone-total').value,
+      silence_before_seconds: +$('tone-before').value,
+      silence_after_seconds: +$('tone-after').value,
+      amplitude: +$('tone-amplitude').value,
+      output_format: $('tone-format').value,
+      filename: 'tone'
+    })});
+    if(!r.ok) throw new Error(await errorMessage(r));
+    const blob = await r.blob(); const url = URL.createObjectURL(blob);
+    $('tone-player').src = url; $('tone-player').style.display = 'block';
+    $('tone-download').href = url; $('tone-download').download = 'announcement-tone'; $('tone-download').style.display = 'inline-flex';
+  } catch(e) { $('error').textContent = e.message; } finally { $('tone-go').disabled = false; }
+};
+$('bulk-go').onclick = async () => {
+  $('error').textContent = '';
+  $('bulk-download').style.display = 'none';
+  const file = $('bulk-file').files[0];
+  if(!file) { $('error').textContent = 'Choose a CSV file first.'; return; }
+  $('bulk-go').disabled = true;
+  $('bulk-progress').value = 0;
+  $('bulk-progress').max = 1;
+  $('bulk-status').textContent = 'Starting bulk job';
+  try {
+    const settings = currentSettings();
+    const fd = new FormData();
+    fd.append('file', file);
+    Object.entries(settings).forEach(([key, value]) => fd.append(key, value));
+    const r = await fetch('/bulk-synthesise', {method:'POST', body:fd});
+    if(!r.ok) throw new Error(await r.text());
+    const job = await r.json();
+    startBulkPolling(job.id);
+  } catch(e) {
+    $('error').textContent = e.message;
+    $('bulk-go').disabled = false;
+    $('bulk-status').textContent = 'Bulk job failed to start';
+  }
+};
+function updateBulkProgress(job){
+  $('bulk-progress').max = Math.max(job.total || 1, 1);
+  $('bulk-progress').value = job.current || 0;
+  $('bulk-status').textContent = job.message || job.status;
+}
+function startBulkPolling(jobId){
+  clearInterval(bulkPoll);
+  bulkPoll = setInterval(async () => {
+    try {
+      const r = await fetch(`/bulk-synthesise/${jobId}/status`);
+      if(!r.ok) throw new Error(await errorMessage(r));
+      const job = await r.json();
+      updateBulkProgress(job);
+      if(job.status === 'complete') {
+        clearInterval(bulkPoll);
+        $('bulk-download').href = job.download_url;
+        $('bulk-download').download = 'announcement-tts-bulk.zip';
+        $('bulk-download').style.display = 'inline-flex';
+        $('bulk-go').disabled = false;
+      }
+      if(job.status === 'failed') {
+        clearInterval(bulkPoll);
+        $('error').textContent = job.error || 'Bulk synthesis failed';
+        $('bulk-go').disabled = false;
+      }
+    } catch(e) {
+      clearInterval(bulkPoll);
+      $('error').textContent = e.message;
+      $('bulk-go').disabled = false;
+    }
+  }, 750);
+}
 $('upload').onclick = async () => {
   const f = $('sample').files[0]; if(!f) return;
   const fd = new FormData(); fd.append('file', f);

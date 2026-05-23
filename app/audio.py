@@ -21,34 +21,102 @@ OUTPUT_FORMATS = {
 }
 
 
-def generate_fallback_wav(text: str, output_path: Path, duration_seconds: float | None = None, speed: float = 1.0) -> Path:
+def generate_tone_wav(
+    output_path: Path,
+    frequency_hz: float = 440.0,
+    beep_seconds: float = 0.25,
+    total_seconds: float = 1.0,
+    silence_before_seconds: float = 0.0,
+    silence_after_seconds: float = 0.0,
+    amplitude: float = 0.8,
+    sample_rate: int = 24000,
+) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    sample_rate = 24000
-    duration = duration_seconds if duration_seconds is not None else min(6.0, max(0.5, len(text) / (18.0 * max(speed, 0.1))))
-    frames = int(sample_rate * duration)
-    # Stable audible placeholder: low amplitude tone with frequency derived from text.
-    freq = 330 + (sum(text.encode("utf-8")) % 220)
-    amp = 0.16
+    total_frames = max(1, int(sample_rate * total_seconds))
+    start_frame = min(total_frames, max(0, int(sample_rate * silence_before_seconds)))
+    latest_end = max(start_frame, total_frames - max(0, int(sample_rate * silence_after_seconds)))
+    tone_frames = max(0, min(int(sample_rate * beep_seconds), latest_end - start_frame))
+    end_frame = start_frame + tone_frames
+    safe_amplitude = max(0.0, min(1.0, amplitude))
     with wave.open(str(output_path), "wb") as wf:
         wf.setnchannels(1)
         wf.setsampwidth(2)
         wf.setframerate(sample_rate)
         payload = bytearray()
-        for i in range(frames):
-            # Slight envelope to avoid clicks.
-            t = i / sample_rate
-            env = min(1.0, i / max(1, sample_rate * 0.02), (frames - i) / max(1, sample_rate * 0.02))
-            value = int(max(-1.0, min(1.0, amp * env * math.sin(2 * math.pi * freq * t))) * 32767)
+        fade_frames = max(1, int(sample_rate * 0.01))
+        for i in range(total_frames):
+            if start_frame <= i < end_frame:
+                tone_index = i - start_frame
+                env = min(1.0, tone_index / fade_frames, (end_frame - i) / fade_frames)
+                t = tone_index / sample_rate
+                sample = safe_amplitude * env * math.sin(2 * math.pi * frequency_hz * t)
+            else:
+                sample = 0.0
+            value = int(max(-1.0, min(1.0, sample)) * 32767)
             payload.extend(struct.pack("<h", value))
         wf.writeframes(bytes(payload))
     return output_path
 
 
-def ffmpeg_command(input_path: Path, output_path: Path, output_format: str, amplitude: float = 1.0) -> list[str]:
+def generate_silence_wav(
+    output_path: Path,
+    duration_seconds: float,
+    sample_rate: int = 24000,
+    channels: int = 1,
+    sample_width: int = 2,
+) -> Path:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    frames = max(1, int(sample_rate * duration_seconds))
+    with wave.open(str(output_path), "wb") as wf:
+        wf.setnchannels(channels)
+        wf.setsampwidth(sample_width)
+        wf.setframerate(sample_rate)
+        wf.writeframes(b"\x00" * frames * channels * sample_width)
+    return output_path
+
+
+def concatenate_wavs(input_paths: list[Path], output_path: Path) -> Path:
+    if not input_paths:
+        raise ValueError("At least one WAV input is required")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    params = None
+    payload = bytearray()
+    for input_path in input_paths:
+        with wave.open(str(input_path), "rb") as wf:
+            current = wf.getparams()
+            comparable = (current.nchannels, current.sampwidth, current.framerate, current.comptype, current.compname)
+            if params is None:
+                params = comparable
+            elif comparable != params:
+                raise ValueError("Cannot concatenate WAV files with different audio parameters")
+            payload.extend(wf.readframes(current.nframes))
+    assert params is not None
+    with wave.open(str(output_path), "wb") as wf:
+        wf.setnchannels(params[0])
+        wf.setsampwidth(params[1])
+        wf.setframerate(params[2])
+        wf.writeframes(bytes(payload))
+    return output_path
+
+
+def ffmpeg_command(
+    input_path: Path,
+    output_path: Path,
+    output_format: str,
+    amplitude: float = 1.0,
+    pitch_semitones: float = 0.0,
+    source_rate: int = 24000,
+) -> list[str]:
     if output_format not in OUTPUT_FORMATS:
         raise ValueError(f"Unsupported output format: {output_format}")
     fmt = OUTPUT_FORMATS[output_format]
-    filters = [f"volume={amplitude}"] if amplitude != 1.0 else []
+    filters = []
+    if pitch_semitones != 0.0:
+        pitch_factor = 2 ** (pitch_semitones / 12)
+        shifted_rate = max(1, int(round(source_rate * pitch_factor)))
+        filters.append(f"asetrate={shifted_rate},aresample={source_rate},atempo={1 / pitch_factor:.6f}")
+    if amplitude != 1.0:
+        filters.append(f"volume={amplitude}")
     cmd = ["ffmpeg", "-y", "-i", str(input_path), "-ar", str(fmt["rate"]), "-ac", "1"]
     if filters:
         cmd += ["-filter:a", ",".join(filters)]
@@ -56,7 +124,13 @@ def ffmpeg_command(input_path: Path, output_path: Path, output_format: str, ampl
     return cmd
 
 
-def convert_audio(input_path: Path, output_path: Path, output_format: str, amplitude: float = 1.0) -> Path:
+def convert_audio(
+    input_path: Path,
+    output_path: Path,
+    output_format: str,
+    amplitude: float = 1.0,
+    pitch_semitones: float = 0.0,
+) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if shutil.which("ffmpeg") is None:
         # No ffmpeg: keep API useful for WAV formats by copying native placeholder.
@@ -64,7 +138,13 @@ def convert_audio(input_path: Path, output_path: Path, output_format: str, ampli
             output_path.write_bytes(input_path.read_bytes())
             return output_path
         raise RuntimeError("ffmpeg is required for non-WAV output conversion")
-    subprocess.run(ffmpeg_command(input_path, output_path, output_format, amplitude), check=True, capture_output=True)
+    with wave.open(str(input_path), "rb") as wf:
+        source_rate = wf.getframerate()
+    subprocess.run(
+        ffmpeg_command(input_path, output_path, output_format, amplitude, pitch_semitones, source_rate),
+        check=True,
+        capture_output=True,
+    )
     return output_path
 
 

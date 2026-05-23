@@ -9,15 +9,25 @@ import httpx
 class LMStudioTTSClient:
     """Small OpenAI-compatible audio client with defensive content-type checks."""
 
-    def __init__(self, base_url: str, timeout: float = 4.0, client: httpx.AsyncClient | None = None):
+    def __init__(
+        self,
+        base_url: str,
+        timeout: float = 4.0,
+        client: httpx.AsyncClient | None = None,
+        api_key: str = "",
+        model: str = "",
+    ):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self._client = client
+        self.api_key = api_key
+        self.model = model
 
     async def _client_ctx(self):
         if self._client is not None:
             return self._client, False
-        return httpx.AsyncClient(base_url=self.base_url, timeout=self.timeout), True
+        headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else None
+        return httpx.AsyncClient(base_url=self.base_url, timeout=self.timeout, headers=headers), True
 
     async def probe_models(self) -> list[str]:
         client, close = await self._client_ctx()
@@ -34,7 +44,7 @@ class LMStudioTTSClient:
 
     async def synthesise(self, text: str, voice_or_model: str, output_path: Path, speed: float = 1.0) -> Path | None:
         models = await self.probe_models()
-        model = self._choose_model(models, voice_or_model)
+        model = self.model or self._choose_model(models, voice_or_model)
         endpoints = ["/audio/speech", "/tts", "/audio"]
         client, close = await self._client_ctx()
         try:

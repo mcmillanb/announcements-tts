@@ -10,6 +10,7 @@ class SynthesiseRequest(BaseModel):
     output_format: OutputFormat = "wav-pcm-16k"
     amplitude: float = Field(1.0, ge=0.1, le=3.0)
     speed: float = Field(1.0, ge=0.5, le=2.0)
+    pitch: float = Field(0.0, ge=-12.0, le=12.0)
     use_ollama: bool = False
     filename: Optional[str] = None
 
