@@ -191,11 +191,14 @@
 
         <section class="panel soft">
           <h2>Voice Samples</h2>
-          <label for="sample">Upload sample</label>
+          <label for="voice-label">Voice name</label>
+          <input id="voice-label" type="text" placeholder="e.g. My Voice" />
+          <label for="sample">Audio file (.wav / .mp3 / .flac)</label>
           <input id="sample" type="file" accept=".wav,.mp3,.flac,audio/*" />
           <div class="actions">
-            <button id="upload" class="ghost" type="button">Upload</button>
+            <button id="upload" class="ghost" type="button">Upload &amp; register</button>
           </div>
+          <p id="upload-status" style="display:none;margin:0.5rem 0 0;font-size:0.85rem"></p>
         </section>
       </aside>
     </div>
@@ -302,11 +305,14 @@ async function init(){
   if(h.engine.tts_status === 'unavailable' || h.engine.tts_status === 'disabled') {
     setPanelStatus('single-status', h.engine.tts_status_message || 'TTS provider is not ready', true);
   }
+  await loadVoices();
+  applyMainDefaults();
+  applyConfigForm();
+}
+async function loadVoices(){
   const v = await fetch('/voices').then(r=>r.json());
   voices = v.voices;
   populateVoiceSelects();
-  applyMainDefaults();
-  applyConfigForm();
 }
 function populateVoiceSelects(){
   $('voice').replaceChildren();
@@ -472,9 +478,34 @@ function startBulkPolling(jobId){
   }, 750);
 }
 $('upload').onclick = async () => {
-  const f = $('sample').files[0]; if(!f) return;
-  const fd = new FormData(); fd.append('file', f);
-  const r = await fetch('/upload-sample', {method:'POST', body:fd}); $('error').textContent = JSON.stringify(await r.json(), null, 2);
+  const f = $('sample').files[0];
+  if (!f) { $('error').textContent = 'Please choose an audio file first.'; return; }
+  const btn = $('upload');
+  const status = $('upload-status');
+  btn.disabled = true;
+  btn.textContent = 'Uploading…';
+  status.style.display = 'none';
+  $('error').textContent = '';
+  try {
+    const fd = new FormData();
+    fd.append('file', f);
+    fd.append('label', $('voice-label').value.trim());
+    const r = await fetch('/upload-sample', {method:'POST', body:fd});
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || 'Upload failed');
+    status.style.display = 'block';
+    status.style.color = 'var(--success, #2a7)';
+    status.textContent = `✓ Registered as "${data.label}" (id: ${data.voice_id})`;
+    $('voice-label').value = '';
+    $('sample').value = '';
+    await loadVoices();
+    $('voice').value = data.voice_id;
+  } catch(e) {
+    $('error').textContent = e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Upload & register';
+  }
 };
 init().catch(e => $('error').textContent = e.message);
 </script>

@@ -80,5 +80,23 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -fsS http://127.0.0.1:8001/health >/dev/null || exit 1
 
 CMD ["uvicorn", "app.tts_service:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "1"]
+FROM base AS f5-tts-service
+
+COPY requirements-f5tts.txt ./
+RUN pip install --no-cache-dir -r requirements-f5tts.txt
+
+COPY app ./app
+
+RUN mkdir -p /app/voices/samples
+
+ENV HF_HOME=/root/.cache/huggingface
+
+EXPOSE 8002
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
+  CMD curl -fsS http://127.0.0.1:8002/health >/dev/null || exit 1
+
+CMD ["uvicorn", "app.f5tts_service:app", "--host", "0.0.0.0", "--port", "8002", "--workers", "1"]
+
 FROM api AS final
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

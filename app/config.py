@@ -70,6 +70,12 @@ class BundledTTSConfig(BaseModel):
     timeout_seconds: float = 60.0
 
 
+class F5TTSConfig(BaseModel):
+    enabled: bool = True
+    base_url: str = Field(default_factory=lambda: os.getenv("F5TTS_BASE_URL", "http://f5-tts:8002"))
+    timeout_seconds: float = 300.0
+
+
 class EngineConfig(BaseModel):
     provider: Literal["bundled", "external"] = Field(default_factory=lambda: os.getenv("TTS_PROVIDER", "bundled"))
     external_provider: Literal["lmstudio", "openai", "ollama", "openwebui", "custom"] = Field(
@@ -89,6 +95,7 @@ class AppConfig(BaseModel):
     custom_voices: Dict[str, VoiceConfig] = Field(default_factory=dict)
     engine: EngineConfig = Field(default_factory=EngineConfig)
     bundled_tts: BundledTTSConfig = Field(default_factory=BundledTTSConfig)
+    f5tts: F5TTSConfig = Field(default_factory=F5TTSConfig)
     ollama: OllamaConfig = Field(default_factory=OllamaConfig)
     openwebui: OpenWebUIConfig = Field(default_factory=OpenWebUIConfig)
     lmstudio: LMStudioConfig = Field(default_factory=LMStudioConfig)

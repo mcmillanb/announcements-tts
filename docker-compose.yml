@@ -78,6 +78,57 @@ services:
               capabilities: [gpu]
     restart: unless-stopped
 
+  f5-tts-cpu:
+    profiles: ["cpu"]
+    build:
+      context: .
+      target: f5-tts-service
+    container_name: announcement-tts-f5-cpu
+    ports:
+      - "8767:8002"
+    environment:
+      ANNOUNCEMENTTTS_DEVICE: "cpu"
+      HF_HOME: /root/.cache/huggingface
+    volumes:
+      - ./voices/samples:/app/voices/samples:ro
+      - f5tts_hf_cache:/root/.cache/huggingface
+    networks:
+      default:
+        aliases:
+          - f5-tts
+    restart: unless-stopped
+
+  f5-tts-gpu:
+    profiles: ["gpu"]
+    build:
+      context: .
+      target: f5-tts-service
+    container_name: announcement-tts-f5-gpu
+    ports:
+      - "8767:8002"
+    environment:
+      ANNOUNCEMENTTTS_DEVICE: "gpu"
+      CUDA_VISIBLE_DEVICES: "${CUDA_VISIBLE_DEVICES:-0}"
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      HF_HOME: /root/.cache/huggingface
+    volumes:
+      - ./voices/samples:/app/voices/samples:ro
+      - f5tts_hf_cache:/root/.cache/huggingface
+    networks:
+      default:
+        aliases:
+          - f5-tts
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
 volumes:
   tts_hf_cache:
   tts_model_cache:
+  f5tts_hf_cache:

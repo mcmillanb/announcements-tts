@@ -18,6 +18,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
 from app.adapters.bundled_remote import BundledRemoteTTSClient
+from app.adapters.f5tts import F5TTSClient
 from app.adapters.lmstudio import LMStudioTTSClient
 from app.audio import (
     OUTPUT_FORMATS,
@@ -28,7 +29,7 @@ from app.audio import (
     generate_tone_wav,
     mime_for,
 )
-from app.config import AppConfig, load_config, save_config
+from app.config import AppConfig, VoiceConfig, load_config, save_config
 from app.voices import VoiceRegistry
 
 
@@ -149,24 +150,32 @@ async def _render_speech(
         with tempfile.TemporaryDirectory() as td:
             async def render_segment(text: str, path: Path) -> None:
                 produced = None
-                speaker = voice.speaker or voice.id
-                if config.engine.provider == "bundled" and config.bundled_tts.enabled:
-                    bundled = BundledRemoteTTSClient(
-                        config.bundled_tts.base_url,
-                        timeout=config.bundled_tts.timeout_seconds,
-                    )
-                    produced = await bundled.synthesise(text, speaker, path, speed=req.speed)
-                external = config.external_tts_settings()
-                if produced is None and config.engine.provider == "external" and external["enabled"]:
-                    lm = LMStudioTTSClient(
-                        external["base_url"],
-                        timeout=external["timeout_seconds"],
-                        api_key=external["api_key"],
-                        model=external["model"],
-                    )
-                    produced = await lm.synthesise(text, speaker, path, speed=req.speed)
-                if produced is None:
-                    raise HTTPException(503, "TTS provider did not produce audio")
+                if voice.type == "clone" and voice.sample_file:
+                    if not config.f5tts.enabled:
+                        raise HTTPException(503, "F5-TTS is not enabled; cannot use clone voice")
+                    f5 = F5TTSClient(config.f5tts.base_url, timeout=config.f5tts.timeout_seconds)
+                    produced = await f5.synthesise(text, voice.sample_file, path, speed=req.speed)
+                    if produced is None:
+                        raise HTTPException(503, "F5-TTS service unavailable — is the f5-tts container running?")
+                else:
+                    speaker = voice.speaker or voice.id
+                    if config.engine.provider == "bundled" and config.bundled_tts.enabled:
+                        bundled = BundledRemoteTTSClient(
+                            config.bundled_tts.base_url,
+                            timeout=config.bundled_tts.timeout_seconds,
+                        )
+                        produced = await bundled.synthesise(text, speaker, path, speed=req.speed)
+                    external = config.external_tts_settings()
+                    if produced is None and config.engine.provider == "external" and external["enabled"]:
+                        lm = LMStudioTTSClient(
+                            external["base_url"],
+                            timeout=external["timeout_seconds"],
+                            api_key=external["api_key"],
+                            model=external["model"],
+                        )
+                        produced = await lm.synthesise(text, speaker, path, speed=req.speed)
+                    if produced is None:
+                        raise HTTPException(503, "TTS provider did not produce audio")
 
             raw = Path(td) / "raw.wav"
             rendered_parts = []
@@ -264,7 +273,7 @@ def create_app() -> FastAPI:
         return HTMLResponse(html_path.read_text())
 
     @app.post("/upload-sample")
-    async def upload_sample(file: UploadFile = File(...)):
+    async def upload_sample(file: UploadFile = File(...), label: str = Form("")):
         suffix = Path(file.filename or "sample.wav").suffix.lower()
         if suffix not in {".wav", ".mp3", ".flac"}:
             raise HTTPException(400, "Only WAV, MP3, and FLAC samples are accepted")
@@ -272,7 +281,20 @@ def create_app() -> FastAPI:
         dest = sample_dir / f"{uuid.uuid4().hex}{suffix}"
         with dest.open("wb") as fh:
             shutil.copyfileobj(file.file, fh)
-        return {"filename": dest.name, "path": str(dest)}
+
+        effective_label = label.strip() or Path(file.filename or "My Voice").stem
+        base_id = re.sub(r"[^a-z0-9]+", "-", effective_label.lower()).strip("-") or uuid.uuid4().hex[:8]
+        config = config_state["config"]
+        voice_id = base_id
+        counter = 1
+        while voice_id in config.custom_voices:
+            voice_id = f"{base_id}-{counter}"
+            counter += 1
+        config.custom_voices[voice_id] = VoiceConfig(label=effective_label, sample_file=str(dest))
+        save_config(config)
+        registry_state["registry"] = VoiceRegistry(config)
+
+        return {"voice_id": voice_id, "label": effective_label}
 
     @app.post("/synthesise")
     async def synthesise(req: SynthesisRequest):
