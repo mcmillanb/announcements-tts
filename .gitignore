@@ -7,17 +7,6 @@ voices/samples/*
 !voices/samples/.gitkeep
 output/*
 !output/.gitkeep
-vendor/model-assets/*
-!vendor/model-assets/.gitkeep
-!vendor/model-assets/piper/
-vendor/model-assets/piper/*
-!vendor/model-assets/piper/.gitkeep
-!vendor/model-assets/spacy/
-vendor/model-assets/spacy/*
-!vendor/model-assets/spacy/.gitkeep
-!vendor/model-assets/huggingface/
-vendor/model-assets/huggingface/*
-!vendor/model-assets/huggingface/.gitkeep
 *.wav
 *.mp3
 *.flac
@@ -25,3 +14,10 @@ vendor/model-assets/huggingface/*
 .hermes_overnight.log
 .hermes_overnight_prompt.md
 .DS_Store
+
+# Keep predownloaded build assets in Git so Docker builds can run offline,
+# even when their file extensions match the generic audio ignores above.
+!vendor/model-assets/**
+# Ignore Hugging Face cache runtime noise; blobs/snapshots/refs are the useful assets.
+vendor/model-assets/huggingface/hub/.locks/
+vendor/model-assets/huggingface/xet/
