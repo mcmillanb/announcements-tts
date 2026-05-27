@@ -34,6 +34,17 @@ snapshot_download(
 )
 PY
 
+echo "Downloading F5-TTS Hugging Face cache..."
+HF_HOME="$HF_HOME_DIR" python3 - <<'PY'
+from huggingface_hub import snapshot_download
+
+# Pre-cache F5-TTS so cloned-voice synthesis works offline.
+snapshot_download(
+    repo_id="SWivid/F5-TTS",
+    repo_type="model",
+)
+PY
+
 cat <<EOF
 
 Build assets are ready in:

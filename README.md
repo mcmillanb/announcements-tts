@@ -95,7 +95,7 @@ For builds where HuggingFace and GitHub are unavailable, pre-stage model assets 
 ./scripts/predownload-build-assets.sh
 ```
 
-This writes assets under `vendor/model-assets/` (Piper voice, Kokoro cache, spaCy wheel). Copy the full repo including `vendor/model-assets/` to the isolated host; the Dockerfile uses local files when present.
+This writes assets under `vendor/model-assets/` (Piper voice, Kokoro cache, F5-TTS cache, spaCy wheel). Copy the full repo including `vendor/model-assets/` to the isolated host; the Dockerfile uses local files when present.
 
 ### NVIDIA CUDA checklist
 
