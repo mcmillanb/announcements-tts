@@ -86,8 +86,12 @@ COPY requirements-api.txt requirements-f5tts.txt ./
 RUN pip install --no-cache-dir -r requirements-f5tts.txt
 
 COPY app ./app
+COPY vendor/model-assets /tmp/model-assets
 
-RUN mkdir -p /app/voices/samples
+RUN mkdir -p /app/voices/samples /root/.cache/huggingface \
+    && if [ -d /tmp/model-assets/huggingface/hub ]; then \
+      cp -a /tmp/model-assets/huggingface/. /root/.cache/huggingface/; \
+    fi
 
 ENV HF_HOME=/root/.cache/huggingface
 
