@@ -1,0 +1,91 @@
+version: "3.8"
+
+services:
+  tts:
+    image: ${ANNOUNCEMENTTTS_IMAGE:-ghcr.io/mcmillanb/announcements-tts:latest}
+    ports:
+      - target: 8000
+        published: 8765
+        protocol: tcp
+        mode: ingress
+    environment:
+      TTS_PROVIDER: ${TTS_PROVIDER:-bundled}
+      BUNDLED_TTS_BASE_URL: http://bundled-tts:8001
+      LMSTUDIO_BASE_URL: ${LMSTUDIO_BASE_URL:-http://192.168.123.54:1234/v1}
+      ANNOUNCEMENTTTS_DEVICE: cpu
+      ANNOUNCEMENTTTS_CONFIG_DIR: /app/config
+      ANNOUNCEMENTTTS_OUTPUT_DIR: /app/output
+      ANNOUNCEMENTTTS_SAMPLE_DIR: /app/voices/samples
+    volumes:
+      - type: bind
+        source: ${ANNOUNCEMENTTTS_CONFIG_PATH:-/srv/announcements-tts/config}
+        target: /app/config
+      - type: bind
+        source: ${ANNOUNCEMENTTTS_SAMPLES_PATH:-/srv/announcements-tts/voices/samples}
+        target: /app/voices/samples
+      - type: bind
+        source: ${ANNOUNCEMENTTTS_OUTPUT_PATH:-/srv/announcements-tts/output}
+        target: /app/output
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+      placement:
+        constraints:
+          - node.role == manager
+
+  bundled-tts:
+    image: ${ANNOUNCEMENTTTS_IMAGE:-ghcr.io/mcmillanb/announcements-tts:latest}
+    environment:
+      ANNOUNCEMENTTTS_CONFIG_DIR: /app/config
+      ANNOUNCEMENTTTS_DEVICE: cpu
+      PIPER_MODEL_PATH: /app/voices/piper/en_GB-alan-medium.onnx
+      HF_HOME: /root/.cache/huggingface
+    command: ["uvicorn", "app.tts_service:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "1"]
+    volumes:
+      - type: bind
+        source: ${ANNOUNCEMENTTTS_CONFIG_PATH:-/srv/announcements-tts/config}
+        target: /app/config
+        read_only: true
+      - tts_hf_cache:/root/.cache
+      - tts_model_cache:/root/.local
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+      placement:
+        constraints:
+          - node.role == manager
+
+  f5-tts:
+    image: ${ANNOUNCEMENTTTS_IMAGE:-ghcr.io/mcmillanb/announcements-tts:latest}
+    environment:
+      ANNOUNCEMENTTTS_DEVICE: cpu
+      HF_HOME: /root/.cache/huggingface
+    command: ["uvicorn", "app.f5tts_service:app", "--host", "0.0.0.0", "--port", "8002", "--workers", "1"]
+    volumes:
+      - type: bind
+        source: ${ANNOUNCEMENTTTS_SAMPLES_PATH:-/srv/announcements-tts/voices/samples}
+        target: /app/voices/samples
+        read_only: true
+      - f5tts_hf_cache:/root/.cache/huggingface
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+      placement:
+        constraints:
+          - node.role == manager
+
+volumes:
+  tts_hf_cache:
+  tts_model_cache:
+  f5tts_hf_cache:

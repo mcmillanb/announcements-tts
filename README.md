@@ -103,6 +103,78 @@ This writes assets under `vendor/model-assets/` (Piper voice, Kokoro cache, F5-T
 - Verify GPU is visible to Docker: `docker run --rm nvidia/cuda:12.1.0-cudnn8-runtime nvidia-smi`
 - Use `--profile gpu` when starting the stack
 
+## Docker Swarm / Portainer deployment
+
+For Portainer stacks on Swarm, use the dedicated stack files in this repo:
+
+- `stack.swarm.cpu.yml`
+- `stack.swarm.gpu.yml`
+
+These are Swarm-safe versions of the compose stack:
+
+- use prebuilt `image:` instead of `build:`
+- remove Compose `profiles`
+- avoid `container_name`
+- use `deploy.restart_policy`
+- keep one CPU/GPU variant per stack to avoid port conflicts
+
+### 1) Build and push image first
+
+Swarm nodes cannot build this project from stack YAML. Build once and push to a registry tag, for example:
+
+```bash
+docker build -t ghcr.io/mcmillanb/announcements-tts:latest .
+docker push ghcr.io/mcmillanb/announcements-tts:latest
+```
+
+### 2) Prepare host paths on the target Swarm node
+
+```bash
+mkdir -p /srv/announcements-tts/config /srv/announcements-tts/voices/samples /srv/announcements-tts/output
+cp config/config.example.json /srv/announcements-tts/config/config.json
+```
+
+### 3) Portainer stack environment variables
+
+Set these in Portainer when deploying the stack:
+
+- `ANNOUNCEMENTTTS_IMAGE` (example: `ghcr.io/mcmillanb/announcements-tts:latest`)
+- `ANNOUNCEMENTTTS_CONFIG_PATH` (default `/srv/announcements-tts/config`)
+- `ANNOUNCEMENTTTS_SAMPLES_PATH` (default `/srv/announcements-tts/voices/samples`)
+- `ANNOUNCEMENTTTS_OUTPUT_PATH` (default `/srv/announcements-tts/output`)
+- `LMSTUDIO_BASE_URL` (if using LM Studio)
+
+For GPU stacks also set:
+
+- `CUDA_VISIBLE_DEVICES` (default `0`)
+
+### 4) Deploy
+
+CPU stack:
+
+```bash
+docker stack deploy -c stack.swarm.cpu.yml announcements-tts
+```
+
+GPU stack:
+
+```bash
+docker stack deploy -c stack.swarm.gpu.yml announcements-tts
+```
+
+### 5) Validate
+
+```bash
+docker service ls | grep announcements-tts
+curl -fsS http://<swarm-node-ip>:8765/health
+```
+
+### Swarm notes
+
+- This stack is pinned to manager node by default (`node.role == manager`) to keep bind mounts simple. If you want worker scheduling, switch to shared storage (NFS/Ceph/etc) or per-node path parity.
+- HF caches (`tts_hf_cache`, `f5tts_hf_cache`) are named volumes in Swarm and persist across service restarts/redeploys.
+- F5 cache seeding from `vendor/model-assets/huggingface` happens at image build time; therefore build/push the image after updating vendor assets.
+
 ---
 
 ## Voice Cloning
