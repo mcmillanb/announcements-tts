@@ -12,7 +12,7 @@ services:
       BUNDLED_TTS_BASE_URL: "http://bundled-tts:8001"
       F5TTS_BASE_URL: "http://f5-tts:8002"
       LMSTUDIO_BASE_URL: "http://host.docker.internal:1234/v1"
-      ANNOUNCEMENTTTS_DEVICE: "${ANNOUNCEMENTTTS_DEVICE:-${BRITISHTTS_DEVICE:-cpu}}"
+      ANNOUNCEMENTTTS_DEVICE: "${ANNOUNCEMENTTTS_DEVICE:-${BRITISHTTS_DEVICE:-gpu}}"
       ANNOUNCEMENTTTS_CONFIG_DIR: /app/config
       ANNOUNCEMENTTTS_OUTPUT_DIR: /app/output
       ANNOUNCEMENTTTS_SAMPLE_DIR: /app/voices/samples
@@ -33,8 +33,10 @@ services:
       - "8766:8001"
     environment:
       ANNOUNCEMENTTTS_CONFIG_DIR: /app/config
-      ANNOUNCEMENTTTS_DEVICE: "${ANNOUNCEMENTTTS_DEVICE:-${BRITISHTTS_DEVICE:-cpu}}"
-      CUDA_VISIBLE_DEVICES: "${CUDA_VISIBLE_DEVICES:-}"
+      ANNOUNCEMENTTTS_DEVICE: "${ANNOUNCEMENTTTS_DEVICE:-${BRITISHTTS_DEVICE:-gpu}}"
+      CUDA_VISIBLE_DEVICES: "${CUDA_VISIBLE_DEVICES:-0}"
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
       HF_HOME: /root/.cache/huggingface
       HF_HUB_OFFLINE: "1"
       TRANSFORMERS_OFFLINE: "1"
@@ -45,6 +47,13 @@ services:
       default:
         aliases:
           - bundled-tts
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     restart: unless-stopped
 
   f5-tts:
@@ -55,8 +64,10 @@ services:
     ports:
       - "8767:8002"
     environment:
-      ANNOUNCEMENTTTS_DEVICE: "${ANNOUNCEMENTTTS_DEVICE:-${BRITISHTTS_DEVICE:-cpu}}"
-      CUDA_VISIBLE_DEVICES: "${CUDA_VISIBLE_DEVICES:-}"
+      ANNOUNCEMENTTTS_DEVICE: "${ANNOUNCEMENTTTS_DEVICE:-${BRITISHTTS_DEVICE:-gpu}}"
+      CUDA_VISIBLE_DEVICES: "${CUDA_VISIBLE_DEVICES:-0}"
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
       HF_HOME: /root/.cache/huggingface
       HF_HUB_OFFLINE: "1"
       TRANSFORMERS_OFFLINE: "1"
@@ -66,4 +77,11 @@ services:
       default:
         aliases:
           - f5-tts
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     restart: unless-stopped
