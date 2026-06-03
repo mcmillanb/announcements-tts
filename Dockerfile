@@ -91,9 +91,18 @@ COPY vendor/model-assets /tmp/model-assets
 RUN mkdir -p /app/voices/samples /root/.cache/huggingface \
     && if [ -d /tmp/model-assets/huggingface/hub ]; then \
       cp -a /tmp/model-assets/huggingface/. /root/.cache/huggingface/; \
+      test -s /root/.cache/huggingface/hub/models--SWivid--F5-TTS/refs/main; \
+      test -s /root/.cache/huggingface/hub/models--charactr--vocos-mel-24khz/refs/main; \
+      f5_rev="$(cat /root/.cache/huggingface/hub/models--SWivid--F5-TTS/refs/main)"; \
+      vocos_rev="$(cat /root/.cache/huggingface/hub/models--charactr--vocos-mel-24khz/refs/main)"; \
+      test -s "/root/.cache/huggingface/hub/models--SWivid--F5-TTS/snapshots/${f5_rev}/F5TTS_v1_Base/model_1250000.safetensors"; \
+      test -s "/root/.cache/huggingface/hub/models--charactr--vocos-mel-24khz/snapshots/${vocos_rev}/config.yaml"; \
+      test -s "/root/.cache/huggingface/hub/models--charactr--vocos-mel-24khz/snapshots/${vocos_rev}/pytorch_model.bin"; \
     fi
 
-ENV HF_HOME=/root/.cache/huggingface
+ENV HF_HOME=/root/.cache/huggingface \
+    HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1
 
 EXPOSE 8002
 

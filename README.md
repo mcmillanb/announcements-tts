@@ -95,7 +95,12 @@ For builds where HuggingFace and GitHub are unavailable, pre-stage model assets 
 ./scripts/predownload-build-assets.sh
 ```
 
-This writes assets under `vendor/model-assets/` (Piper voice, Kokoro cache, F5-TTS cache, spaCy wheel). Copy the full repo including `vendor/model-assets/` to the isolated host; the Dockerfile uses local files when present.
+This writes assets under `vendor/model-assets/` (Piper voice, Kokoro cache, F5-TTS cache, F5-TTS Vocos vocoder cache, spaCy wheel). Copy the full repo including `vendor/model-assets/` to the isolated host; the Dockerfile uses local files when present.
+
+For F5-TTS, the Hugging Face cache directories must be under `vendor/model-assets/huggingface/hub/`, including:
+
+- `models--SWivid--F5-TTS`
+- `models--charactr--vocos-mel-24khz`
 
 ### NVIDIA CUDA checklist
 
@@ -184,7 +189,7 @@ curl -fsS http://<swarm-node-ip>:8765/health
 3. Click **Upload & register** — the voice is registered immediately and appears in the voice dropdown
 4. Select the cloned voice and synthesise — the F5-TTS service uses your sample as the reference
 
-The first synthesis with a cloned voice triggers the F5-TTS model download (~1.2 GB) if not already cached. Subsequent runs load from the `f5tts_hf_cache` volume.
+The first synthesis with a cloned voice loads the F5-TTS and Vocos models from the image-baked Hugging Face cache in airgap builds. If those assets were added after a previous build, rebuild the `f5-tts` image so the cache is copied into the container.
 
 **Reference audio tips:**
 - 10–20 seconds of clean, consistent speech gives the best results

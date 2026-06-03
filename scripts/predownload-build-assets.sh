@@ -43,6 +43,12 @@ snapshot_download(
     repo_id="SWivid/F5-TTS",
     repo_type="model",
 )
+
+# F5-TTS loads this vocoder lazily during synthesis.
+snapshot_download(
+    repo_id="charactr/vocos-mel-24khz",
+    repo_type="model",
+)
 PY
 
 cat <<EOF
