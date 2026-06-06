@@ -107,6 +107,7 @@ For F5-TTS, the Hugging Face cache directories must be under `vendor/model-asset
 - Install [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) on the Docker host
 - Verify GPU is visible to Docker: `docker run --rm nvidia/cuda:12.1.0-cudnn8-runtime nvidia-smi`
 - Use `--profile gpu` when starting the stack
+- Troubleshooting guide: [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
 
 ## Docker Swarm / Portainer deployment
 
