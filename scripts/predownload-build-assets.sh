@@ -24,8 +24,21 @@ curl -fL --retry 3 --retry-delay 2 \
   "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl"
 
 echo "Downloading Kokoro Hugging Face cache..."
-python3 -m pip install --quiet "huggingface_hub>=0.23"
-HF_HOME="$HF_HOME_DIR" python3 - <<'PY'
+PYTHON_BIN="${PYTHON_BIN:-$(command -v python3.11 || command -v python3 || command -v python)}"
+VENV_DIR=""
+cleanup() {
+  if [ -n "$VENV_DIR" ] && [ -d "$VENV_DIR" ]; then
+    rm -rf "$VENV_DIR"
+  fi
+}
+trap cleanup EXIT
+if ! "$PYTHON_BIN" -m pip --version >/dev/null 2>&1; then
+  VENV_DIR="$(mktemp -d "${TMPDIR:-/tmp}/announcements-tts-assets-venv.XXXXXX")"
+  "$PYTHON_BIN" -m venv "$VENV_DIR"
+  PYTHON_BIN="$VENV_DIR/bin/python"
+fi
+"$PYTHON_BIN" -m pip install --quiet "huggingface_hub>=0.23"
+HF_HOME="$HF_HOME_DIR" "$PYTHON_BIN" - <<'PY'
 from huggingface_hub import snapshot_download
 
 snapshot_download(
@@ -35,7 +48,7 @@ snapshot_download(
 PY
 
 echo "Downloading F5-TTS Hugging Face cache..."
-HF_HOME="$HF_HOME_DIR" python3 - <<'PY'
+HF_HOME="$HF_HOME_DIR" "$PYTHON_BIN" - <<'PY'
 from huggingface_hub import snapshot_download
 
 # Pre-cache F5-TTS so cloned-voice synthesis works offline.
